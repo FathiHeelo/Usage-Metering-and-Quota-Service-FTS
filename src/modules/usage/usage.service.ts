@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   accountMonthlyUsage,
@@ -8,7 +8,11 @@ import {
   userMonthlyUsage,
   users,
 } from "../../db/schema.js";
-import type { ConsumeUsageInput } from "./usage.schema.js";
+import type {
+  ConsumeUsageInput,
+  UsageHistoryQuery,
+  UsageMonthQuery,
+} from "./usage.schema.js";
 
 type QuotaScope = "ACCOUNT" | "USER";
 type RejectionRule = "MONTHLY_ALLOWANCE" | "MAX_UNITS_PER_REQUEST";
@@ -43,6 +47,14 @@ function currentUtcMonthStart(): string {
   const now = new Date();
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
   return `${now.getUTCFullYear()}-${month}-01`;
+}
+
+function resolveMonth(query: UsageMonthQuery): {
+  month: string;
+  monthStart: string;
+} {
+  const month = query.month ?? currentUtcMonthStart().slice(0, 7);
+  return { month, monthStart: `${month}-01` };
 }
 
 function remaining(limit: bigint, used: bigint): bigint {
@@ -303,4 +315,172 @@ export async function consumeUsage(accountId: string, input: ConsumeUsageInput) 
 
     return formatDecision(snapshot);
   });
+}
+
+export async function getAccountUsage(
+  accountId: string,
+  query: UsageMonthQuery,
+) {
+  const { month, monthStart } = resolveMonth(query);
+  const [account] = await db
+    .select({
+      id: accounts.id,
+      monthlyLimit: plans.monthlyAllowance,
+    })
+    .from(accounts)
+    .innerJoin(plans, eq(accounts.currentPlanId, plans.id))
+    .where(eq(accounts.id, accountId))
+    .limit(1);
+
+  if (!account) {
+    throw new Error("Authenticated account or current plan was not found");
+  }
+
+  const [usage] = await db
+    .select({ usedUnits: accountMonthlyUsage.usedUnits })
+    .from(accountMonthlyUsage)
+    .where(
+      and(
+        eq(accountMonthlyUsage.accountId, accountId),
+        eq(accountMonthlyUsage.monthStart, monthStart),
+      ),
+    )
+    .limit(1);
+  const used = usage?.usedUnits ?? 0n;
+
+  return {
+    accountId: account.id,
+    month,
+    used: used.toString(),
+    monthlyLimit: account.monthlyLimit.toString(),
+    remaining: remaining(account.monthlyLimit, used).toString(),
+  };
+}
+
+export async function getUserUsage(
+  accountId: string,
+  externalUserId: string,
+  query: UsageMonthQuery,
+) {
+  const { month, monthStart } = resolveMonth(query);
+  const [user] = await db
+    .select({
+      id: users.id,
+      externalUserId: users.externalUserId,
+      monthlyLimit: plans.monthlyAllowance,
+    })
+    .from(users)
+    .innerJoin(plans, eq(users.currentPlanId, plans.id))
+    .where(
+      and(
+        eq(users.accountId, accountId),
+        eq(users.externalUserId, externalUserId),
+      ),
+    )
+    .limit(1);
+
+  if (!user) {
+    throw new UsageUserNotFoundError();
+  }
+
+  const [usage] = await db
+    .select({ usedUnits: userMonthlyUsage.usedUnits })
+    .from(userMonthlyUsage)
+    .where(
+      and(
+        eq(userMonthlyUsage.userId, user.id),
+        eq(userMonthlyUsage.monthStart, monthStart),
+      ),
+    )
+    .limit(1);
+  const used = usage?.usedUnits ?? 0n;
+
+  return {
+    externalUserId: user.externalUserId,
+    month,
+    used: used.toString(),
+    monthlyLimit: user.monthlyLimit.toString(),
+    remaining: remaining(user.monthlyLimit, used).toString(),
+  };
+}
+
+export async function getUsageHistory(
+  accountId: string,
+  query: UsageHistoryQuery,
+) {
+  const conditions = [eq(usageRequests.accountId, accountId)];
+
+  if (query.externalUserId !== undefined) {
+    conditions.push(eq(users.externalUserId, query.externalUserId));
+  }
+  if (query.status !== undefined) {
+    conditions.push(eq(usageRequests.status, query.status));
+  }
+  if (query.month !== undefined) {
+    conditions.push(eq(usageRequests.monthStart, `${query.month}-01`));
+  }
+
+  const where = and(...conditions);
+  const [totalRow] = await db
+    .select({ total: count() })
+    .from(usageRequests)
+    .innerJoin(
+      users,
+      and(
+        eq(usageRequests.userId, users.id),
+        eq(usageRequests.accountId, users.accountId),
+      ),
+    )
+    .where(where);
+  const rows = await db
+    .select({
+      requestId: usageRequests.requestId,
+      externalUserId: users.externalUserId,
+      units: usageRequests.units,
+      status: usageRequests.status,
+      rejectionScope: usageRequests.rejectionScope,
+      rejectionRule: usageRequests.rejectionRule,
+      createdAt: usageRequests.createdAt,
+      accountUsedAfter: usageRequests.accountUsedAfter,
+      accountRemainingAfter: usageRequests.accountRemainingAfter,
+      userUsedAfter: usageRequests.userUsedAfter,
+      userRemainingAfter: usageRequests.userRemainingAfter,
+    })
+    .from(usageRequests)
+    .innerJoin(
+      users,
+      and(
+        eq(usageRequests.userId, users.id),
+        eq(usageRequests.accountId, users.accountId),
+      ),
+    )
+    .where(where)
+    .orderBy(desc(usageRequests.createdAt), desc(usageRequests.id))
+    .limit(query.limit)
+    .offset((query.page - 1) * query.limit);
+
+  return {
+    items: rows.map((row) => ({
+      requestId: row.requestId,
+      externalUserId: row.externalUserId,
+      units: row.units.toString(),
+      status: row.status,
+      rejection:
+        row.status === "REJECTED"
+          ? { scope: row.rejectionScope, rule: row.rejectionRule }
+          : null,
+      createdAt: row.createdAt.toISOString(),
+      account: {
+        usedAfter: row.accountUsedAfter.toString(),
+        remainingAfter: row.accountRemainingAfter.toString(),
+      },
+      user: {
+        usedAfter: row.userUsedAfter.toString(),
+        remainingAfter: row.userRemainingAfter.toString(),
+      },
+    })),
+    page: query.page,
+    limit: query.limit,
+    total: totalRow?.total ?? 0,
+  };
 }

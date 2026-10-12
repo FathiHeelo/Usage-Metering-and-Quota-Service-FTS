@@ -82,3 +82,5 @@ Authenticated accounts can create custom plans with `POST /plans`, list global a
 ## Consume usage
 
 `POST /usage/consume` atomically evaluates account and user quotas for the authenticated account. Requests are idempotent per account and `requestId`. Account usage is locked before user usage to prevent overspending under concurrency. BIGINT units, usage, and remaining values are returned as decimal strings.
+
+Authenticated usage reads are available from `GET /usage/account`, `GET /usage/users/:externalUserId`, and the paginated `GET /usage/history`. Monthly summaries use current plan limits, while history returns stored decision snapshots. BIGINT fields are serialized as decimal strings.

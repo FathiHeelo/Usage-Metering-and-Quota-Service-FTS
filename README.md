@@ -70,3 +70,5 @@ Protected endpoints accept the raw API key in the `X-API-Key` header. `GET /me` 
 ## Create a user
 
 `POST /users` requires `X-API-Key` and accepts `{"externalUserId":"user_001"}`. The user belongs to the authenticated account and starts on the predefined Basic USER plan. The same external user ID may be used by different accounts, but it must be unique within each account.
+
+`PATCH /users/:externalUserId/plan` changes an authenticated account's own user to an accessible USER plan. It updates only the user's current plan; existing monthly usage remains unchanged.

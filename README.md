@@ -1,2 +1,64 @@
-# Usage-Metering-and-Quota-Service-FTS
- a backend service that other applications call to track usage and decide whether their users can perform an action. The service supports plans for both the calling application and its individual users.
+# Usage Metering and Quota Service
+
+Backend foundation built with Node.js, TypeScript, Fastify, PostgreSQL, and Drizzle ORM.
+
+## Development setup
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Copy the example environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   On Windows PowerShell, use `Copy-Item .env.example .env`.
+
+3. Start PostgreSQL:
+
+   ```bash
+   docker compose up -d
+   ```
+
+4. Start the API in development mode:
+
+   ```bash
+   npm run dev
+   ```
+
+5. Test the health endpoint:
+
+   ```bash
+   curl http://localhost:3000/health
+   ```
+
+   Expected response: `{"status":"ok"}`
+
+## Build and run
+
+```bash
+npm run build
+npm start
+```
+
+Database commands are available as `npm run db:generate`, `npm run db:migrate`, `npm run db:seed`, and `npm run db:studio`.
+
+## Database schema
+
+Generate and apply migrations, then seed the predefined plans:
+
+```bash
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+```
+
+The seed is idempotent and can be run multiple times safely. PostgreSQL `bigint` values are represented as JavaScript `bigint` values by the Drizzle schema.
+
+## Create an account
+
+`POST /accounts` accepts a JSON body such as `{"name":"DocuApp"}`. A new account starts on the predefined Starter ACCOUNT plan and receives a newly generated API key. The raw API key is returned only in this creation response; PostgreSQL stores only its SHA-256 hash and identification prefix.

@@ -76,3 +76,5 @@ Protected endpoints accept the raw API key in the `X-API-Key` header. `GET /me` 
 ## Custom plans
 
 Authenticated accounts can create custom plans with `POST /plans`, list global and account-owned plans with `GET /plans`, and update their own custom plans with `PATCH /plans/:planId`. Predefined plans are read-only and return HTTP 403 when an update is attempted. BIGINT limits are returned as decimal strings for lossless JSON serialization.
+
+`PATCH /account/plan` changes the authenticated account to an accessible ACCOUNT plan. It updates only the account's current plan and preserves existing monthly usage.

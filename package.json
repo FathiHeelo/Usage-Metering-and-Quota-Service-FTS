@@ -13,6 +13,7 @@
     "test:auth": "tsx --test test/api-key-auth.integration.test.ts",
     "test:users": "tsx --test test/users.integration.test.ts",
     "test:user-plan": "tsx --test test/user-plan.integration.test.ts",
+    "test:plans": "tsx --test test/plans.integration.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",

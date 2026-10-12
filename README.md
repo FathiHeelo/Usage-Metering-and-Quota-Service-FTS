@@ -72,3 +72,7 @@ Protected endpoints accept the raw API key in the `X-API-Key` header. `GET /me` 
 `POST /users` requires `X-API-Key` and accepts `{"externalUserId":"user_001"}`. The user belongs to the authenticated account and starts on the predefined Basic USER plan. The same external user ID may be used by different accounts, but it must be unique within each account.
 
 `PATCH /users/:externalUserId/plan` changes an authenticated account's own user to an accessible USER plan. It updates only the user's current plan; existing monthly usage remains unchanged.
+
+## Custom plans
+
+Authenticated accounts can create custom plans with `POST /plans`, list global and account-owned plans with `GET /plans`, and update their own custom plans with `PATCH /plans/:planId`. Predefined plans are read-only and return HTTP 403 when an update is attempted. BIGINT limits are returned as decimal strings for lossless JSON serialization.

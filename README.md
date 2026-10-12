@@ -66,3 +66,7 @@ The seed is idempotent and can be run multiple times safely. PostgreSQL `bigint`
 ## API-key authentication
 
 Protected endpoints accept the raw API key in the `X-API-Key` header. `GET /me` is a small protected endpoint that returns the authenticated account. Missing, invalid, and revoked keys receive `401 Unauthorized`; `GET /health` and `POST /accounts` remain public.
+
+## Create a user
+
+`POST /users` requires `X-API-Key` and accepts `{"externalUserId":"user_001"}`. The user belongs to the authenticated account and starts on the predefined Basic USER plan. The same external user ID may be used by different accounts, but it must be unique within each account.

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { authenticateApiKey } from "../../plugins/api-key-auth.js";
 import { createAccountSchema } from "./account.schema.js";
 import {
   createAccount,
@@ -27,5 +28,13 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
       request.log.error({ err: error }, "Failed to create account");
       return reply.code(500).send({ error: "Internal server error" });
     }
+  });
+
+  app.get("/me", { preHandler: authenticateApiKey }, async (request, reply) => {
+    if (!request.authenticatedAccount) {
+      return reply.code(401).send({ error: "Unauthorized" });
+    }
+
+    return { account: request.authenticatedAccount };
   });
 };

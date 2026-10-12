@@ -62,3 +62,7 @@ The seed is idempotent and can be run multiple times safely. PostgreSQL `bigint`
 ## Create an account
 
 `POST /accounts` accepts a JSON body such as `{"name":"DocuApp"}`. A new account starts on the predefined Starter ACCOUNT plan and receives a newly generated API key. The raw API key is returned only in this creation response; PostgreSQL stores only its SHA-256 hash and identification prefix.
+
+## API-key authentication
+
+Protected endpoints accept the raw API key in the `X-API-Key` header. `GET /me` is a small protected endpoint that returns the authenticated account. Missing, invalid, and revoked keys receive `401 Unauthorized`; `GET /health` and `POST /accounts` remain public.

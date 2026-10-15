@@ -21,6 +21,7 @@
     "test:account-plan": "tsx --test test/account-plan.integration.test.ts",
     "test:usage": "tsx --test test/usage.integration.test.ts",
     "test:plan-concurrency": "tsx --test test/plan-concurrency.integration.test.ts",
+    "test:quota-edge-cases": "tsx --test test/quota-edge-cases.integration.test.ts",
     "test:concurrency-manual": "tsx scripts/concurrency-check.ts",
     "test:usage-read": "tsx --test test/usage-read.integration.test.ts",
     "db:generate": "drizzle-kit generate",

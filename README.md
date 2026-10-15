@@ -21,7 +21,7 @@ Backend foundation built with Node.js, TypeScript, Fastify, PostgreSQL, and Driz
 3. Start PostgreSQL:
 
    ```bash
-   docker compose up -d
+   docker compose up -d postgres
    ```
 
 4. Start the API in development mode:
@@ -37,6 +37,34 @@ Backend foundation built with Node.js, TypeScript, Fastify, PostgreSQL, and Driz
    ```
 
    Expected response: `{"status":"ok"}`
+
+## Docker setup
+
+Build and start the API and PostgreSQL together:
+
+```bash
+docker compose up --build
+```
+
+Compose waits for PostgreSQL to become healthy, then the API container applies committed migrations, seeds the predefined plans, and starts Fastify. Migration or seed failures stop API startup instead of launching against an incomplete database.
+
+The API is published on port 3000. PostgreSQL is bound only to the host loopback interface; if local port 5432 is already occupied, set `POSTGRES_PORT` to another port in `.env` before starting Compose. Container-to-container database traffic always uses `postgres:5432`.
+
+In another terminal, inspect service health and API logs:
+
+```bash
+docker compose ps
+docker compose logs -f api
+curl http://localhost:3000/health
+```
+
+Stop the stack safely with `Ctrl+C` followed by:
+
+```bash
+docker compose down
+```
+
+PostgreSQL data is stored in the named `postgres_data` volume, so normal stops, restarts, and `docker compose down` preserve existing data. Do not use `docker compose down -v` casually: the `-v` option permanently deletes the database volume and all data stored in it.
 
 ## Build and run
 

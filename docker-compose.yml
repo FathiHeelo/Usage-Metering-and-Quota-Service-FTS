@@ -2,19 +2,45 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: quota_db
-      POSTGRES_USER: quota_user
-      POSTGRES_PASSWORD: quota_password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-quota_db}
+      POSTGRES_USER: ${POSTGRES_USER:-quota_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quota_password}
+    
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U quota_user -d quota_db"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quota_user}:${POSTGRES_PASSWORD:-quota_password}@postgres:5432/${POSTGRES_DB:-quota_db}
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1));",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
 
 volumes:
   postgres_data:

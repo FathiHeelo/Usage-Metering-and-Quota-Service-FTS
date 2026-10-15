@@ -13,6 +13,7 @@
     "build:client": "npm --prefix client run build",
     "start": "node dist/server.js",
     "test:accounts": "tsx --test test/accounts.integration.test.ts",
+    "test:account-rate-limit": "tsx --test test/account-rate-limit.integration.test.ts",
     "test:auth": "tsx --test test/api-key-auth.integration.test.ts",
     "test:static-security": "tsx --test test/static-security.integration.test.ts",
     "test:users": "tsx --test test/users.integration.test.ts",
@@ -30,10 +31,11 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@fastify/rate-limit": "11.2.0",
     "@fastify/static": "^10.1.2",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.4",
-    "fastify": "^5.6.1",
+    "fastify": "5.12.7",
     "pg": "^8.16.3",
     "zod": "^4.6.6"
   },

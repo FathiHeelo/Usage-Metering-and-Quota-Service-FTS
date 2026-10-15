@@ -40,7 +40,10 @@ interface Fixture {
   user: CreatedUser;
 }
 
-const app = buildApp({ logger: false });
+const app = buildApp({
+  logger: false,
+  accountCreationRateLimit: { max: 100, timeWindowMs: 60_000 },
+});
 const createdAccountIds: string[] = [];
 let starterPlanId: string | undefined;
 let basicPlanId: string | undefined;

@@ -1,6 +1,91 @@
-# Usage Metering and Quota Service
+# Usage Metering & Quota Service
 
-An account-aware quota decision service that meters usage atomically across organization and user limits.
+A cloud-hosted, account-aware quota service that makes atomic usage decisions across organization and user limits, with concurrency safety, idempotency, and an auditable request history.
+
+[![Deployed on AWS EC2](https://img.shields.io/badge/AWS-EC2-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/ec2/)
+[![Live Demo](https://img.shields.io/badge/LIVE-DEMO-16A34A?style=for-the-badge)](https://quota-fts.duckdns.org)
+
+[![Dockerized](https://img.shields.io/badge/Dockerized-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Fastify](https://img.shields.io/badge/Fastify-5-111111?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
+[![HTTPS Enabled](https://img.shields.io/badge/HTTPS-Enabled-0F766E?style=flat-square&logo=letsencrypt&logoColor=white)](https://quota-fts.duckdns.org)
+
+### 🚀 Live on AWS — Production-Style Cloud Deployment
+
+This is a real, publicly accessible engineering demo hosted on Amazon EC2—not a mockup or localhost-only presentation. It uses a compact production-style deployment while deliberately avoiding claims of enterprise-scale operations or hardening.
+
+| Deployment area | Live implementation |
+| --- | --- |
+| Cloud provider | Amazon Web Services (AWS) |
+| Compute | Amazon EC2 running Amazon Linux 2023 |
+| Containerization | Docker and Docker Compose |
+| Application | Node.js, TypeScript, Fastify, and a built React + Vite dashboard |
+| Database | PostgreSQL 16 with a persistent Docker volume |
+| Public edge | Caddy reverse proxy with a Let's Encrypt TLS certificate |
+| Hostname | DuckDNS |
+| Availability | Publicly accessible live demo; no uptime guarantee is implied |
+
+### Live Application
+
+**URL:** [https://quota-fts.duckdns.org](https://quota-fts.duckdns.org)
+
+[![Launch Live Demo](https://img.shields.io/badge/LAUNCH_LIVE_DEMO-2563EB?style=for-the-badge)](https://quota-fts.duckdns.org)
+
+### Try the Live Demo
+
+Treat the API key issued during onboarding as a secret. The evaluator flow is:
+
+1. Create an account and receive its one-time API key.
+2. Create a user owned by that account.
+3. Assign predefined plans or create custom monthly quota plans.
+4. Consume usage units through the dashboard or REST API.
+5. Inspect accepted and rejected decisions, monthly counters, and history.
+
+Useful engineering scenarios to exercise include account-level and per-user enforcement, atomic all-or-nothing consumption, idempotent retries, over-limit rejection, plan changes, custom plans, usage history, and cross-account isolation.
+
+### 🛠️ Engineering Highlights
+
+- **Transaction-safe quota consumption:** PostgreSQL commits counters and decision history atomically.
+- **Concurrency-safe accounting:** deterministic row locking prevents overlapping requests from overspending shared quotas.
+- **Idempotent requests:** account-scoped request IDs replay the original decision without double charging.
+- **Multi-tenant isolation:** authenticated account context scopes users, plans, counters, and history.
+- **Two-level quota policy:** account and user monthly allowances and per-request ceilings are evaluated together.
+- **Flexible plans:** seeded global plans and tenant-owned custom plans support both scopes.
+- **Secure API-key handling:** raw keys are returned once; only SHA-256 hashes are stored.
+- **Validated REST API:** Fastify routes use Zod validation and generic client-safe errors.
+- **Database-backed verification:** real PostgreSQL integration tests cover persistence, concurrency, and rollback behavior.
+- **Measured workloads:** k6 profiles exercise performance, quota concurrency, and idempotent retries.
+- **Cloud delivery:** Docker Compose runs on AWS EC2 behind Caddy-managed HTTPS.
+
+<a id="cloud-infrastructure-deployment"></a>
+
+## ☁️ Cloud Infrastructure & Deployment
+
+The live demo runs on an AWS EC2 instance using Amazon Linux 2023. Docker Compose orchestrates the Fastify application and PostgreSQL 16 containers. Fastify serves both the REST API and the compiled React dashboard, while PostgreSQL retains state in a named Docker volume.
+
+Caddy runs at the public edge as the reverse proxy for the DuckDNS hostname and provisions the TLS certificate through Let's Encrypt. The live host exposes HTTP/HTTPS for browser traffic, forwards application traffic to the API on `127.0.0.1:3000`, and does not publish PostgreSQL port `5432` publicly. Docker restart policies restore the API and database containers after routine host or process restarts.
+
+```mermaid
+flowchart TB
+    evaluator[Internet / Evaluator]
+    dns[DuckDNS hostname<br/>quota-fts.duckdns.org]
+
+    subgraph ec2[AWS EC2 · Amazon Linux 2023]
+        caddy[Caddy reverse proxy<br/>Public HTTP / HTTPS<br/>Let's Encrypt TLS]
+        app[Docker Compose · Fastify API<br/>React + Vite static dashboard<br/>127.0.0.1:3000]
+        db[(PostgreSQL 16<br/>Internal Compose network<br/>Persistent Docker volume)]
+
+        caddy -->|Proxies to loopback| app
+        app -->|Internal database connection| db
+    end
+
+    evaluator -->|Resolves hostname| dns
+    dns -->|Points to the EC2 public address| caddy
+    evaluator -->|HTTPS| caddy
+```
+
+This is a production-style single-host deployment, not an enterprise production platform. It does not claim Kubernetes, ECS, RDS, load balancing, autoscaling, automated backups, CI/CD deployment, or production monitoring. Caddy is part of the live host configuration rather than an additional service in the repository's default Compose file. The repository's default host-port mapping remains convenient for local development; a public deployment must pair the loopback binding with appropriately restricted EC2 security-group and host-firewall rules.
 
 ## Project Demo
 
@@ -12,6 +97,7 @@ An account-aware quota decision service that meters usage atomically across orga
 
 ## Contents
 
+- [Cloud infrastructure & deployment](#cloud-infrastructure-deployment)
 - [Overview](#overview)
 - [Features and capabilities](#features-and-capabilities)
 - [Architecture](#architecture)
@@ -73,7 +159,7 @@ Implemented behavior is described in this README. Ideas under [Known limitations
 
 ## Architecture
 
-The production Compose topology has two processes: one Fastify container and one PostgreSQL 16 container. The React client is built into `dist/public` and served by Fastify, so browser traffic and API traffic use the same origin. There is no separate frontend server or reverse proxy in the repository.
+The repository's Compose topology has two services: one Fastify container and one PostgreSQL 16 container. The React client is built into `dist/public` and served by Fastify, so browser traffic and API traffic use the same origin. The live EC2 host adds Caddy as an external reverse proxy; Caddy is not a third service in the repository's default Compose file.
 
 At request time:
 
@@ -346,7 +432,7 @@ For separate frontend development, run `npm run dev:client`; Vite serves `http:/
 8. **Change a plan.** Assign another compatible plan and observe that previously consumed units remain. Future decisions use the plan effective at their serialization point.
 9. **Review history.** Filter accepted and rejected requests and inspect their stored post-decision snapshots.
 
-The dashboard stores the active API key and recently used user identifiers in browser `sessionStorage` for this local demonstration. It sends the key only through `X-API-Key`.
+For evaluator convenience, the dashboard stores the active API key and recently used user identifiers in browser `sessionStorage`. It sends the key only through `X-API-Key`; this demo-oriented browser storage is not presented as production identity or secret management.
 
 ## API Reference
 
@@ -667,7 +753,7 @@ Container startup applies migrations, seeds predefined plans, and then replaces 
 >
 > Future asset: `docs/assets/docker-deployment.png`
 
-The current deployment is intentionally small. It has no Redis, proxy, process manager, or Kubernetes configuration. That keeps the quota decision path dependent on one authoritative database and makes the project reproducible on a development machine.
+The repository's container topology is intentionally small. It has no Redis, proxy container, process manager, or Kubernetes configuration. The live EC2 host supplies Caddy at the network edge without changing the quota decision path, which remains dependent on one authoritative PostgreSQL database.
 
 An observed post-test idle snapshot recorded approximately 37.95 MiB for the API and 30.96 MiB for PostgreSQL. Those values are observations from one local Docker environment, not proof that a specific optimization caused the memory level and not a production sizing recommendation.
 
@@ -778,16 +864,16 @@ The service does not log or return stored hashes. Internal database errors are l
 | Current limitation | Consequence | Possible future direction |
 | --- | --- | --- |
 | No list-all-users endpoint | The dashboard remembers only users created or successfully looked up in the active browser session. | Add a paginated, account-scoped user listing API. |
-| Browser demo stores its key in `sessionStorage` | Appropriate for a local demo, but not a production secret-management model. | Use a backend-for-frontend or secure server-side session for a hosted console. |
+| Browser demo stores its key in `sessionStorage` | Convenient for evaluation, but not a production secret-management model. | Use a backend-for-frontend or secure server-side session for a production console. |
 | Current plan is inferred in parts of the UI from visible plan limits | Plans with identical limits can make the displayed inference ambiguous. | Return current plan identity from a dedicated account/user detail API. |
 | Health is process-only | A healthy response does not prove PostgreSQL is reachable. | Add a separate readiness endpoint with a bounded database check. |
 | Load-test records remain in PostgreSQL | Repeated local runs accumulate isolated accounts and history. | Use a dedicated performance database with lifecycle cleanup. |
 | Benchmark hardware details were not retained | Results cannot be compared rigorously across machines. | Record CPU, memory allocation, pool size, image digest, and generator utilization with each run. |
-| Compose credentials are development defaults | They are unsuitable as production secrets. | Inject managed secrets and enforce TLS in a production deployment. |
+| Compose credentials are development defaults | They are unsuitable as production secrets even though the live edge uses HTTPS. | Inject secrets from a managed or host-protected secret store rather than source-controlled defaults. |
 | No metrics/tracing integration | Operators rely mainly on logs, API reads, and external Docker statistics. | Add low-cardinality metrics, tracing, and lock/pool saturation visibility. |
 | One database remains the scaling boundary | Hot accounts serialize intentionally and can experience lock contention. | Measure per-account contention before considering partitioning or a carefully reconciled accelerator. |
 
-Potential additions such as API-key lifecycle endpoints, retention policies, production rate limiting, and orchestrated deployment are not currently implemented.
+Potential additions such as API-key lifecycle endpoints, retention policies, production rate limiting, and multi-host orchestration are not currently implemented.
 
 ## Repository Structure
 

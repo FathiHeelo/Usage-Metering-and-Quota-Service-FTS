@@ -51,7 +51,10 @@ interface Fixture {
   userPlanId: string;
 }
 
-const app = buildApp({ logger: false });
+const app = buildApp({
+  logger: false,
+  accountCreationRateLimit: { max: 100, timeWindowMs: 60_000 },
+});
 const createdAccountIds: string[] = [];
 const runId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 let fixtureSequence = 0;

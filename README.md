@@ -457,7 +457,7 @@ The server never accepts `accountId` in tenant-scoped request bodies. Numeric `B
 | Method | Path | Auth | Purpose | Important responses |
 | --- | --- | --- | --- | --- |
 | `GET` | `/health` | Public | Process health response. | `200`; no database readiness query. |
-| `POST` | `/accounts` | Public | Create an account on Starter and issue its initial key. | `201`, `400`, `500`. |
+| `POST` | `/accounts` | Public, IP-limited | Create an account on Starter and issue its initial key. | `201`, `400`, `429`, `500`. |
 | `GET` | `/me` | API key | Return the authenticated account ID and name. | `200`, `401`, `500`. |
 | `PATCH` | `/account/plan` | API key | Assign an accessible ACCOUNT plan to the caller. | `200`, `400`, `401`, `404`, `500`. |
 | `POST` | `/users` | API key | Create an external user on Basic under the caller. | `201`, `400`, `401`, `409`, `500`. |
@@ -492,7 +492,15 @@ Content-Type: application/json
 }
 ```
 
-The name is trimmed and must not be empty. Account creation and hashed API-key persistence share one transaction.
+The name is trimmed and must not be empty. Account creation and hashed API-key persistence share one transaction. Excess registration attempts from one client IP return `429` with a `Retry-After` header and a generic error:
+
+```json
+{
+  "statusCode": 429,
+  "error": "Too Many Requests",
+  "message": "Too many account creation requests. Please try again later."
+}
+```
 
 `GET /me` returns:
 
@@ -718,6 +726,9 @@ Results are newest first and always scoped to the authenticated account.
 | `DATABASE_URL` | Required by the Node.js process; Compose supplies an internal URL. | PostgreSQL connection string used by Drizzle and `pg`. |
 | `DB_POOL_MAX` | `10` | Positive integer maximum for the shared PostgreSQL pool. |
 | `PORT` | `3000` | API listen port; also controls the Compose host mapping. |
+| `ACCOUNT_CREATION_RATE_LIMIT_MAX` | `3` | Maximum `POST /accounts` attempts allowed per client IP in one window. |
+| `ACCOUNT_CREATION_RATE_LIMIT_WINDOW_MS` | `900000` (15 minutes) | Positive integer duration of the account-creation rate-limit window. |
+| `TRUSTED_PROXY_IPS` | Empty (trust no proxy) | Comma-separated IP addresses or CIDRs allowed to supply forwarded client-IP information. |
 | `POSTGRES_DB` | `quota_db` in Compose | Database created by the PostgreSQL image. |
 | `POSTGRES_USER` | `quota_user` in Compose | Development database role. |
 | `POSTGRES_PASSWORD` | `quota_password` in Compose | Development-only database password. |
@@ -732,6 +743,8 @@ Operational behavior:
 - Docker `json-file` logs rotate at 10 MiB with three files per service.
 - The API health route returns process status only; it does not execute a database readiness query.
 - `GET /health` has route-specific logging configuration while business endpoint logging remains enabled.
+- Account creation is limited in memory per API process; multiple replicas do not share counters.
+- Behind Caddy, set `TRUSTED_PROXY_IPS` to only the actual proxy-side source IP or CIDR seen by Fastify. Never use a blanket trust value, and keep the API origin inaccessible except through Caddy.
 
 ## Docker and Deployment
 
@@ -764,6 +777,7 @@ The integration tests use Fastify injection with real PostgreSQL state. They cov
 | Command | Focus |
 | --- | --- |
 | `npm run test:accounts` | Starter assignment and one-time hashed API-key persistence. |
+| `npm run test:account-rate-limit` | Successful public registration, per-client throttling, `429` responses, and trusted-proxy IP handling. |
 | `npm run test:auth` | Public routes, valid/invalid/revoked keys, and authenticated account context. |
 | `npm run test:static-security` | React assets, API route precedence, and encoded/non-canonical path protection. |
 | `npm run test:users` | Tenant-scoped user creation, duplicates, and cross-account identifiers. |
@@ -853,6 +867,8 @@ All five profiles are retained as compact, sanitized JSON in the [verified resul
 - **Validation:** Zod rejects malformed bodies, parameters, filters, UUIDs, month strings, and unsafe numeric values before service execution.
 - **Transaction safety:** account/user counters and decision persistence share one transaction; accepted decisions update both counters and rejected decisions update neither.
 - **Retry safety:** account-scoped uniqueness and post-lock replay checks prevent duplicate charging.
+- **Public registration throttling:** `POST /accounts` uses a configurable per-client-IP limiter and returns `429` plus `Retry-After` when the window is exhausted.
+- **Proxy-aware client IPs:** forwarded addresses are used only when the direct peer matches an explicitly configured `TRUSTED_PROXY_IPS` IP or CIDR; arbitrary forwarding headers are otherwise ignored.
 - **Static path handling:** `@fastify/static` is configured with enumerated routes (`wildcard: false`), and regression tests cover encoded and non-canonical attempts to reach protected API paths.
 - **Dependency audit:** the most recent recorded `npm audit --omit=dev` after upgrading `@fastify/static` reported zero production vulnerabilities. This is a point-in-time package audit, not a claim that the application is vulnerability-free.
 - **Operational containment:** the runtime image contains production dependencies only and runs as a non-root user; Docker logs are bounded by rotation settings.
@@ -872,8 +888,9 @@ The service does not log or return stored hashes. Internal database errors are l
 | Compose credentials are development defaults | They are unsuitable as production secrets even though the live edge uses HTTPS. | Inject secrets from a managed or host-protected secret store rather than source-controlled defaults. |
 | No metrics/tracing integration | Operators rely mainly on logs, API reads, and external Docker statistics. | Add low-cardinality metrics, tracing, and lock/pool saturation visibility. |
 | One database remains the scaling boundary | Hot accounts serialize intentionally and can experience lock contention. | Measure per-account contention before considering partitioning or a carefully reconciled accelerator. |
+| Account-creation rate limits are stored in process memory | Limits are effective for this single API instance but are not globally coordinated across replicas or restarts. | Add a shared limiter store only if the deployment scales to multiple API instances. |
 
-Potential additions such as API-key lifecycle endpoints, retention policies, production rate limiting, and multi-host orchestration are not currently implemented.
+Potential additions such as API-key lifecycle endpoints, retention policies, broader authenticated-endpoint rate policies, and multi-host orchestration are not currently implemented.
 
 ## Repository Structure
 

@@ -95,6 +95,18 @@ Database commands are available as `npm run db:generate`, `npm run db:migrate`, 
 
 The dashboard explains quota terminology inline. Monthly allowances use UTC calendar months. The current backend has no user-list endpoint, so the demo remembers only user identifiers created or successfully looked up during the active browser session; all usage and decision data is still fetched from the API.
 
+## Load and performance testing
+
+The standalone k6 suite under [`load-tests/`](load-tests/README.md) provides smoke, normal-load, optional stress, concurrency-correctness, and idempotency-concurrency profiles. It creates isolated records through the real API, writes timestamped summaries under `load-tests/results/`, and never runs as part of normal Docker Compose startup.
+
+With the application running, execute focused profiles from Windows PowerShell:
+
+```powershell
+.\load-tests\run-k6.ps1 smoke
+.\load-tests\run-k6.ps1 concurrency
+.\load-tests\run-k6.ps1 idempotency
+```
+
 ## Database schema
 
 Generate and apply migrations, then seed the predefined plans:

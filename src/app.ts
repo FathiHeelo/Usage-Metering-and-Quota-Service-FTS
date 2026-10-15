@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import { accountRoutes } from "./modules/accounts/account.routes.js";
 import { planRoutes } from "./modules/plans/plan.routes.js";
@@ -14,6 +17,14 @@ export function buildApp(options: FastifyServerOptions = { logger: true }) {
   app.register(planRoutes);
   app.register(userRoutes);
   app.register(usageRoutes);
+
+  const clientRoot = resolve(process.cwd(), "dist", "public");
+  if (existsSync(clientRoot)) {
+    app.register(fastifyStatic, {
+      root: clientRoot,
+      wildcard: false,
+    });
+  }
 
   return app;
 }

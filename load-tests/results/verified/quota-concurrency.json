@@ -1,0 +1,24 @@
+{
+  "profile": "Quota Concurrency",
+  "status": "PASS",
+  "sourceReport": "concurrency-2026-10-15T16-50-36-371Z.json",
+  "sourceReportSha256": "de3e5f6cdaa654d65d1b001872e4f63e047981739c93697d943b4669f6b858e2",
+  "executedAtUtc": "2026-10-15T16:50:36.371Z",
+  "environment": "local Docker Compose",
+  "workload": "20 simultaneous 10-unit consume requests in one HTTP batch; user monthly allowance 50",
+  "durationSeconds": 0.271115704,
+  "maximumVus": { "configured": 1, "observed": 1 },
+  "http": {
+    "requestCount": 29,
+    "requestsPerSecond": 106.96540101564902,
+    "latencyMs": {
+      "average": 41.00363313793103,
+      "p95": 71.98740499999998,
+      "p99": 91.00077107999998
+    }
+  },
+  "businessDecisions": { "accepted": 5, "rejected": 15, "expectedConflicts": 0 },
+  "technicalFailures": { "count": 0, "rate": 0 },
+  "finalUsage": { "expected": 50, "account": 50, "user": 50, "consistent": true },
+  "assertions": { "passed": 44, "failed": 0, "thresholdsPassed": true, "overallPassed": true }
+}

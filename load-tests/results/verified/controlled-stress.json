@@ -1,0 +1,24 @@
+{
+  "profile": "Controlled Stress",
+  "status": "PASS",
+  "sourceReport": "stress-2026-10-15T16-59-37-714Z.json",
+  "sourceReportSha256": "0c4cfd5175cc16e891ac45756ce468b837cacf44449a9c671e0b860ff6d17ab6",
+  "executedAtUtc": "2026-10-15T16:59:37.714Z",
+  "environment": "local Docker Compose",
+  "workload": "Controlled stages at 10, 25, and 50 VUs; 1 unit per consume request",
+  "durationSeconds": 40.076344524,
+  "maximumVus": { "configured": 50, "observed": 49 },
+  "http": {
+    "requestCount": 5319,
+    "requestsPerSecond": 132.7216856521103,
+    "latencyMs": {
+      "average": 98.43363196164678,
+      "p95": 279.3418971,
+      "p99": 328.0369532799999
+    }
+  },
+  "businessDecisions": { "accepted": 5310, "rejected": 0, "expectedConflicts": 0 },
+  "technicalFailures": { "count": 0, "rate": 0 },
+  "finalUsage": { "expected": 5310, "account": 5310, "user": 5310, "consistent": true },
+  "assertions": { "passed": 10621, "failed": 0, "thresholdsPassed": true, "overallPassed": true }
+}

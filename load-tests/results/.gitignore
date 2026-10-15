@@ -1,3 +1,10 @@
 *.json
 *.csv
 !.gitignore
+!verified/
+verified/*
+!verified/smoke.json
+!verified/quota-concurrency.json
+!verified/concurrent-idempotency.json
+!verified/normal-load.json
+!verified/controlled-stress.json

@@ -183,7 +183,7 @@ Plan changes update only `current_plan_id`; custom-plan edits update only mutabl
 >
 > Future asset: `docs/assets/quota-transaction-flow.png`
 
-The actual `POST /usage/consume` order is important:
+The actual `POST /usage/consume` order is important. Its UTC month is captured when the service begins handling the request, before the transaction and quota-lock wait. A request that starts before a UTC boundary and commits after it therefore remains attributed to its request-entry month:
 
 1. API-key authentication resolves the account.
 2. Zod validates `userId`, positive integer `units`, and `requestId`.
@@ -687,6 +687,7 @@ The integration tests use Fastify injection with real PostgreSQL state. They cov
 | `npm run test:usage` | Accepted/rejected consumption, counter atomicity, idempotency, isolation, and concurrency. |
 | `npm run test:usage-read` | Monthly reads, history, pagination, filters, and account isolation. |
 | `npm run test:plan-concurrency` | Deterministic serialization of consume, plan switches, and custom-plan updates. |
+| `npm run test:quota-edge-cases` | UTC rollover attribution, concurrent idempotency conflicts, cross-user account contention, and transaction rollback. Requires an explicitly marked disposable database. |
 | `npm run test:concurrency-manual` | Manual 10-request quota race against a running API. |
 
 Install dependencies and build before focused checks:
@@ -756,7 +757,7 @@ Interpretation:
 - A **business rejection** is a valid quota decision and is tracked separately from malformed responses, unexpected statuses, network errors, and other **technical failures**.
 - More VUs can increase offered concurrency and throughput, while lock waits, database work, and generator limits can also increase latency.
 
-Smoke, quota-concurrency, and idempotency values are retained in the checked-in results summary. The normal-load and controlled-stress values were supplied for this engineering README; their generated JSON files are not present because `load-tests/results/*.json` is ignored. The recorded environment was local Docker Compose with `grafana/k6:1.8.2`. Precise host hardware and Docker CPU allocation were not captured, so these numbers are reproducibility evidence for the stated environment, not maximum system capacity or production sizing data.
+All five profiles are retained as compact, sanitized JSON in the [verified results index](load-tests/results/README.md). Raw generated reports remain ignored; each committed summary records the selected source filename, its SHA-256 digest, the UTC execution time, full-precision measurements, correctness totals, and assertion verdict. The recorded environment was local Docker Compose with `grafana/k6:1.8.2`. Precise host hardware, Docker CPU allocation, generator utilization, and CPU saturation were not captured, so these numbers are reproducibility evidence for the stated workloads, not maximum system capacity or production sizing data.
 
 ## Security and Reliability
 

@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { plans, users } from "../../db/schema.js";
+import { accounts, plans, users } from "../../db/schema.js";
 import type {
   ChangeUserPlanInput,
   CreateUserInput,
@@ -116,58 +116,73 @@ export async function changeUserPlan(
   externalUserId: string,
   input: ChangeUserPlanInput,
 ) {
-  const [user] = await db
-    .select({ id: users.id, externalUserId: users.externalUserId })
-    .from(users)
-    .where(
-      and(
-        eq(users.accountId, accountId),
-        eq(users.externalUserId, externalUserId),
-      ),
-    )
-    .limit(1);
+  return db.transaction(async (tx) => {
+    // Quota mutations serialize on the account before locking a user.
+    const [account] = await tx
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.id, accountId))
+      .for("update")
+      .limit(1);
 
-  if (!user) {
-    throw new UserNotFoundError();
-  }
+    if (!account) {
+      throw new Error("Authenticated account was not found");
+    }
 
-  const [plan] = await db
-    .select({
-      id: plans.id,
-      name: plans.name,
-      scope: plans.scope,
-      ownerAccountId: plans.ownerAccountId,
-    })
-    .from(plans)
-    .where(eq(plans.id, input.planId))
-    .limit(1);
+    const [user] = await tx
+      .select({ id: users.id, externalUserId: users.externalUserId })
+      .from(users)
+      .where(
+        and(
+          eq(users.accountId, accountId),
+          eq(users.externalUserId, externalUserId),
+        ),
+      )
+      .for("update")
+      .limit(1);
 
-  if (!plan) {
-    throw new PlanNotAccessibleError();
-  }
+    if (!user) {
+      throw new UserNotFoundError();
+    }
 
-  if (plan.scope !== "USER") {
-    throw new InvalidUserPlanScopeError();
-  }
+    const [plan] = await tx
+      .select({
+        id: plans.id,
+        name: plans.name,
+        scope: plans.scope,
+        ownerAccountId: plans.ownerAccountId,
+      })
+      .from(plans)
+      .where(eq(plans.id, input.planId))
+      .limit(1);
 
-  if (plan.ownerAccountId !== null && plan.ownerAccountId !== accountId) {
-    throw new PlanNotAccessibleError();
-  }
+    if (!plan) {
+      throw new PlanNotAccessibleError();
+    }
 
-  const [updatedUser] = await db
-    .update(users)
-    .set({ currentPlanId: plan.id })
-    .where(and(eq(users.id, user.id), eq(users.accountId, accountId)))
-    .returning({ id: users.id, externalUserId: users.externalUserId });
+    if (plan.scope !== "USER") {
+      throw new InvalidUserPlanScopeError();
+    }
 
-  if (!updatedUser) {
-    throw new UserNotFoundError();
-  }
+    if (plan.ownerAccountId !== null && plan.ownerAccountId !== accountId) {
+      throw new PlanNotAccessibleError();
+    }
 
-  return {
-    user: {
-      ...updatedUser,
-      plan: { id: plan.id, name: plan.name },
-    },
-  };
+    const [updatedUser] = await tx
+      .update(users)
+      .set({ currentPlanId: plan.id })
+      .where(and(eq(users.id, user.id), eq(users.accountId, accountId)))
+      .returning({ id: users.id, externalUserId: users.externalUserId });
+
+    if (!updatedUser) {
+      throw new UserNotFoundError();
+    }
+
+    return {
+      user: {
+        ...updatedUser,
+        plan: { id: plan.id, name: plan.name },
+      },
+    };
+  });
 }

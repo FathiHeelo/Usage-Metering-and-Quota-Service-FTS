@@ -90,43 +90,57 @@ export async function changeAccountPlan(
   accountId: string,
   input: ChangeAccountPlanInput,
 ) {
-  const [plan] = await db
-    .select({
-      id: plans.id,
-      name: plans.name,
-      scope: plans.scope,
-      ownerAccountId: plans.ownerAccountId,
-    })
-    .from(plans)
-    .where(eq(plans.id, input.planId))
-    .limit(1);
+  return db.transaction(async (tx) => {
+    // The account row is the first lock for every quota-affecting mutation.
+    const [account] = await tx
+      .select({ id: accounts.id, name: accounts.name })
+      .from(accounts)
+      .where(eq(accounts.id, accountId))
+      .for("update")
+      .limit(1);
 
-  if (!plan) {
-    throw new AccountPlanNotAccessibleError();
-  }
+    if (!account) {
+      throw new Error("Authenticated account was not found");
+    }
 
-  if (plan.scope !== "ACCOUNT") {
-    throw new InvalidAccountPlanScopeError();
-  }
+    const [plan] = await tx
+      .select({
+        id: plans.id,
+        name: plans.name,
+        scope: plans.scope,
+        ownerAccountId: plans.ownerAccountId,
+      })
+      .from(plans)
+      .where(eq(plans.id, input.planId))
+      .limit(1);
 
-  if (plan.ownerAccountId !== null && plan.ownerAccountId !== accountId) {
-    throw new AccountPlanNotAccessibleError();
-  }
+    if (!plan) {
+      throw new AccountPlanNotAccessibleError();
+    }
 
-  const [account] = await db
-    .update(accounts)
-    .set({ currentPlanId: plan.id })
-    .where(eq(accounts.id, accountId))
-    .returning({ id: accounts.id, name: accounts.name });
+    if (plan.scope !== "ACCOUNT") {
+      throw new InvalidAccountPlanScopeError();
+    }
 
-  if (!account) {
-    throw new Error("Authenticated account was not found");
-  }
+    if (plan.ownerAccountId !== null && plan.ownerAccountId !== accountId) {
+      throw new AccountPlanNotAccessibleError();
+    }
 
-  return {
-    account: {
-      ...account,
-      plan: { id: plan.id, name: plan.name },
-    },
-  };
+    const [updatedAccount] = await tx
+      .update(accounts)
+      .set({ currentPlanId: plan.id })
+      .where(eq(accounts.id, accountId))
+      .returning({ id: accounts.id, name: accounts.name });
+
+    if (!updatedAccount) {
+      throw new Error("Authenticated account was not found");
+    }
+
+    return {
+      account: {
+        ...updatedAccount,
+        plan: { id: plan.id, name: plan.name },
+      },
+    };
+  });
 }

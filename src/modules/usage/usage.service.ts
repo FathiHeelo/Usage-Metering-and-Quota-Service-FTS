@@ -106,7 +106,7 @@ export async function consumeUsage(accountId: string, input: ConsumeUsageInput) 
 
   return db.transaction(async (tx) => {
     const [user] = await tx
-      .select({ id: users.id, currentPlanId: users.currentPlanId })
+      .select({ id: users.id })
       .from(users)
       .where(
         and(
@@ -150,6 +150,33 @@ export async function consumeUsage(accountId: string, input: ConsumeUsageInput) 
     if (existingDecision) {
       assertIdempotentInput(existingDecision, user.id, requestedUnits);
       return formatDecision(existingDecision);
+    }
+
+    // Global quota-mutation lock order:
+    // account -> user -> account monthly usage -> user monthly usage.
+    // Account/user plan switches and custom-plan updates acquire the same
+    // leading locks, so whichever transaction gets the account lock first
+    // defines whether the old or new plan limits apply.
+    const [lockedAccount] = await tx
+      .select({ id: accounts.id, currentPlanId: accounts.currentPlanId })
+      .from(accounts)
+      .where(eq(accounts.id, accountId))
+      .for("update")
+      .limit(1);
+
+    if (!lockedAccount) {
+      throw new Error("Authenticated account could not be locked");
+    }
+
+    const [lockedUser] = await tx
+      .select({ id: users.id, currentPlanId: users.currentPlanId })
+      .from(users)
+      .where(and(eq(users.id, user.id), eq(users.accountId, accountId)))
+      .for("update")
+      .limit(1);
+
+    if (!lockedUser) {
+      throw new UsageUserNotFoundError();
     }
 
     await tx
@@ -201,9 +228,8 @@ export async function consumeUsage(accountId: string, input: ConsumeUsageInput) 
         monthlyAllowance: plans.monthlyAllowance,
         maxUnitsPerRequest: plans.maxUnitsPerRequest,
       })
-      .from(accounts)
-      .innerJoin(plans, eq(accounts.currentPlanId, plans.id))
-      .where(eq(accounts.id, accountId))
+      .from(plans)
+      .where(eq(plans.id, lockedAccount.currentPlanId))
       .limit(1);
     const [userPlan] = await tx
       .select({
@@ -212,7 +238,7 @@ export async function consumeUsage(accountId: string, input: ConsumeUsageInput) 
         maxUnitsPerRequest: plans.maxUnitsPerRequest,
       })
       .from(plans)
-      .where(eq(plans.id, user.currentPlanId))
+      .where(eq(plans.id, lockedUser.currentPlanId))
       .limit(1);
 
     if (!accountPlan || !userPlan) {

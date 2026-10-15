@@ -1,6 +1,6 @@
 import { eq, isNull, or } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { plans } from "../../db/schema.js";
+import { accounts, plans } from "../../db/schema.js";
 import type { CreatePlanInput, UpdatePlanInput } from "./plan.schema.js";
 
 const DUPLICATE_CUSTOM_PLAN_CONSTRAINT =
@@ -117,27 +117,6 @@ export async function updatePlan(
   planId: string,
   input: UpdatePlanInput,
 ) {
-  const [existingPlan] = await db
-    .select({
-      ownerAccountId: plans.ownerAccountId,
-      isPredefined: plans.isPredefined,
-    })
-    .from(plans)
-    .where(eq(plans.id, planId))
-    .limit(1);
-
-  if (!existingPlan) {
-    throw new PlanNotAccessibleError();
-  }
-
-  if (existingPlan.isPredefined) {
-    throw new PredefinedPlanReadOnlyError();
-  }
-
-  if (existingPlan.ownerAccountId !== accountId) {
-    throw new PlanNotAccessibleError();
-  }
-
   const updates: {
     name?: string;
     monthlyAllowance?: bigint;
@@ -155,17 +134,53 @@ export async function updatePlan(
   }
 
   try {
-    const [plan] = await db
-      .update(plans)
-      .set(updates)
-      .where(eq(plans.id, planId))
-      .returning(returnedPlanFields);
+    return await db.transaction(async (tx) => {
+      // A custom plan can be shared within one account, so its owner account is
+      // the common serialization point for plan updates and all consumption.
+      const [account] = await tx
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.id, accountId))
+        .for("update")
+        .limit(1);
 
-    if (!plan) {
-      throw new PlanNotAccessibleError();
-    }
+      if (!account) {
+        throw new Error("Authenticated account was not found");
+      }
 
-    return { plan: serializePlan(plan) };
+      const [existingPlan] = await tx
+        .select({
+          ownerAccountId: plans.ownerAccountId,
+          isPredefined: plans.isPredefined,
+        })
+        .from(plans)
+        .where(eq(plans.id, planId))
+        .limit(1);
+
+      if (!existingPlan) {
+        throw new PlanNotAccessibleError();
+      }
+
+      if (existingPlan.isPredefined) {
+        throw new PredefinedPlanReadOnlyError();
+      }
+
+      if (existingPlan.ownerAccountId !== accountId) {
+        throw new PlanNotAccessibleError();
+      }
+
+      const [plan] = await tx
+        .update(plans)
+        .set(updates)
+        .where(eq(plans.id, planId))
+        .returning(returnedPlanFields);
+
+      if (!plan) {
+        throw new PlanNotAccessibleError();
+      }
+
+      return { plan: serializePlan(plan) };
+    });
   } catch (error: unknown) {
     if (isDuplicateCustomPlanError(error)) {
       throw new PlanAlreadyExistsError();

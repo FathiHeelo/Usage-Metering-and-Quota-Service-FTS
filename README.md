@@ -756,7 +756,7 @@ Interpretation:
 - A **business rejection** is a valid quota decision and is tracked separately from malformed responses, unexpected statuses, network errors, and other **technical failures**.
 - More VUs can increase offered concurrency and throughput, while lock waits, database work, and generator limits can also increase latency.
 
-Smoke, quota-concurrency, and idempotency values are retained in the checked-in results summary. The normal-load and controlled-stress values were supplied for this engineering README; their generated JSON files are not present because `load-tests/results/*.json` is ignored. The recorded environment was local Docker Compose with `grafana/k6:1.8.2`. Precise host hardware and Docker CPU allocation were not captured, so these numbers are reproducibility evidence for the stated environment, not maximum system capacity or production sizing data.
+All five profiles are retained as compact, sanitized JSON in the [verified results index](load-tests/results/README.md). Raw generated reports remain ignored; each committed summary records the selected source filename, its SHA-256 digest, the UTC execution time, full-precision measurements, correctness totals, and assertion verdict. The recorded environment was local Docker Compose with `grafana/k6:1.8.2`. Precise host hardware, Docker CPU allocation, generator utilization, and CPU saturation were not captured, so these numbers are reproducibility evidence for the stated workloads, not maximum system capacity or production sizing data.
 
 ## Security and Reliability
 

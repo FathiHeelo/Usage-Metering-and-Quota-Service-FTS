@@ -1,0 +1,24 @@
+{
+  "profile": "Smoke",
+  "status": "PASS",
+  "sourceReport": "smoke-2026-10-15T16-50-29-620Z.json",
+  "sourceReportSha256": "23e620047893844c1a6ad3604785ebaa708d262c1528b8d83a9f9f8a415566df",
+  "executedAtUtc": "2026-10-15T16:50:29.620Z",
+  "environment": "local Docker Compose",
+  "workload": "1 VU, 5 iterations, 2 units per consume request",
+  "durationSeconds": 0.18955157,
+  "maximumVus": { "configured": 1, "observed": 1 },
+  "http": {
+    "requestCount": 14,
+    "requestsPerSecond": 73.85852831501211,
+    "latencyMs": {
+      "average": 14.502100642857144,
+      "p95": 23.978658149999998,
+      "p99": 29.57896922999999
+    }
+  },
+  "businessDecisions": { "accepted": 5, "rejected": 0, "expectedConflicts": 0 },
+  "technicalFailures": { "count": 0, "rate": 0 },
+  "finalUsage": { "expected": 10, "account": 10, "user": 10, "consistent": true },
+  "assertions": { "passed": 11, "failed": 0, "thresholdsPassed": true, "overallPassed": true }
+}

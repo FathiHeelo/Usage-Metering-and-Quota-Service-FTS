@@ -1,0 +1,24 @@
+{
+  "profile": "Normal Load",
+  "status": "PASS",
+  "sourceReport": "load-2026-10-15T16-57-38-659Z.json",
+  "sourceReportSha256": "8120f4bd83d2d028b6d2c807c848303e3a3c11ef5e3eeb58575f9c8e534996ec",
+  "executedAtUtc": "2026-10-15T16:57:38.659Z",
+  "environment": "local Docker Compose",
+  "workload": "Ramp from 1 to 10 VUs, hold 30 seconds, ramp down; 1 unit per consume request",
+  "durationSeconds": 50.174987736000006,
+  "maximumVus": { "configured": 10, "observed": 10 },
+  "http": {
+    "requestCount": 1795,
+    "requestsPerSecond": 35.77479698539333,
+    "latencyMs": {
+      "average": 26.155084548746505,
+      "p95": 116.32327649999999,
+      "p99": 217.68800407999962
+    }
+  },
+  "businessDecisions": { "accepted": 1786, "rejected": 0, "expectedConflicts": 0 },
+  "technicalFailures": { "count": 0, "rate": 0 },
+  "finalUsage": { "expected": 1786, "account": 1786, "user": 1786, "consistent": true },
+  "assertions": { "passed": 3573, "failed": 0, "thresholdsPassed": true, "overallPassed": true }
+}

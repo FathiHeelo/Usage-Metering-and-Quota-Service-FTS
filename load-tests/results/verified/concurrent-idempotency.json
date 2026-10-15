@@ -1,0 +1,24 @@
+{
+  "profile": "Concurrent Idempotency",
+  "status": "PASS",
+  "sourceReport": "idempotency-2026-10-15T16-51-31-920Z.json",
+  "sourceReportSha256": "73f4b39edf161ee8ccd57b017d847072a4cb0fc3031d8d0daa48a0f3b383f88b",
+  "executedAtUtc": "2026-10-15T16:51:31.920Z",
+  "environment": "local Docker Compose",
+  "workload": "20 simultaneous retries with one request ID and 7 units, followed by one conflicting payload",
+  "durationSeconds": 0.164575063,
+  "maximumVus": { "configured": 1, "observed": 1 },
+  "http": {
+    "requestCount": 30,
+    "requestsPerSecond": 182.28764098969236,
+    "latencyMs": {
+      "average": 18.533399166666673,
+      "p95": 61.95653254999996,
+      "p99": 77.29430083000001
+    }
+  },
+  "businessDecisions": { "accepted": 20, "rejected": 0, "expectedConflicts": 1 },
+  "technicalFailures": { "count": 0, "rate": 0 },
+  "finalUsage": { "expected": 7, "account": 7, "user": 7, "consistent": true },
+  "assertions": { "passed": 45, "failed": 0, "thresholdsPassed": true, "overallPassed": true }
+}

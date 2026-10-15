@@ -9,7 +9,7 @@ export function buildApp(options: FastifyServerOptions = { logger: true }) {
   const app = Fastify(options);
 
   registerApiKeyAuth(app);
-  app.get("/health", async () => ({ status: "ok" }));
+  app.get("/health", { logLevel: "warn" }, async () => ({ status: "ok" }));
   app.register(accountRoutes);
   app.register(planRoutes);
   app.register(userRoutes);

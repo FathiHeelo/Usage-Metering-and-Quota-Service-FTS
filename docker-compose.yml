@@ -14,6 +14,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   api:
@@ -22,6 +27,7 @@ services:
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-quota_user}:${POSTGRES_PASSWORD:-quota_password}@postgres:5432/${POSTGRES_DB:-quota_db}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
       PORT: 3000
     depends_on:
       postgres:
@@ -36,10 +42,15 @@ services:
           "-e",
           "fetch('http://127.0.0.1:3000/health').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1));",
         ]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 5
       start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
 volumes:

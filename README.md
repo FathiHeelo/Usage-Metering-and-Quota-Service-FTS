@@ -1,13 +1,37 @@
-
 # Usage Metering & Quota Service
+
+<p align="center">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg" width="42" title="React" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg" width="42" title="TypeScript" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/vitejs/vitejs-original.svg" width="42" title="Vite" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original.svg" width="42" title="Node.js" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/fastify/fastify-original.svg" width="42" title="Fastify" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postgresql/postgresql-original.svg" width="42" title="PostgreSQL" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" width="42" title="Docker" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/githubactions/githubactions-original.svg" width="42" title="GitHub Actions" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg" width="55" title="AWS" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postman/postman-original.svg" width="42" title="Postman" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/playwright/playwright-original.svg" width="42" title="Playwright" />
+</p>
 
 🔊 Note: This demo includes English voice narration. Please enable your sound for the full experience.
 
 https://github.com/user-attachments/assets/31f52d56-880b-4415-92b3-346ebdecd9dd
 
+▶️ [Watch the Full Demo on YouTube (1080p)](https://youtu.be/u_M7eTvv5NU)
 
-▶️ Watch the Full Demo on YouTube (1080p)(https://youtu.be/u_M7eTvv5NU)
-## Project Overview 
+## Table of Contents
+
+Jump directly to a section:
+
+- **Explore:** [Project Overview](#project-overview) · [Live Demo & Links](#live-demo-and-quick-links) · [Core Features](#core-features) · [Technology Stack](#technology-stack)
+- **Architecture & Design:** [Architecture](#architecture) · [Engineering Decisions](#engineering-decisions) · [Correctness Guarantees](#critical-correctness-guarantees) · [Database Design](#database-design)
+- **Run & Integrate:** [Quick Start](#quick-start) · [Configuration](#configuration-reference) · [API Walkthrough](#api-and-demo-walkthrough) · [API Quick Example](#api-quick-example)
+- **Verify & Deploy:** [Testing & Performance](#testing-and-performance) · [Deployment & CI/CD](#deployment-and-cicd) · [Assumptions & Limitations](#assumptions-limitations-and-trade-offs)
+
+---
+
+## Project Overview
 
 This service lets an application meter usage against two budgets: one monthly allowance shared by the account and one allowance assigned to each user. A request consumes units only when both scopes have enough monthly capacity and both plans permit the request size. Accounts can use predefined or tenant-owned custom plans, change assignments without erasing usage, and inspect every accepted or rejected decision. The central engineering challenge is maintaining correct accounting when requests, retries, and plan changes happen concurrently. PostgreSQL transactions, deterministic row locking, tenant-scoped constraints, and account-scoped idempotency provide those guarantees.
 
@@ -37,6 +61,17 @@ This service lets an application meter usage against two budgets: one monthly al
 | Usage history | Accepted and rejected decisions retain immutable limit and counter snapshots. |
 | Tenant isolation | API-key authentication supplies account context; clients never choose an account ID. |
 
+## Technology Stack
+
+| Layer | Technologies | Purpose |
+| --- | --- | --- |
+| Frontend | React, TypeScript, Vite | Interactive dashboard and real-API demo client. |
+| Backend | Node.js, Fastify, TypeScript, Zod | REST endpoints, validation, authentication, and quota decisions. |
+| Database | PostgreSQL 16, Drizzle ORM | Transactional quotas, durable history, and relational constraints. |
+| Testing | Node.js test runner, Playwright, k6 | PostgreSQL integration, browser E2E, and local load tests. |
+| Containers & CI/CD | Docker, Docker Compose, GitHub Actions, GHCR | Reproducible builds, automated checks, and immutable images. |
+| Cloud & HTTPS | Amazon EC2, AWS Systems Manager, GitHub OIDC, Caddy | Production deployment without stored long-lived AWS keys and HTTPS termination. |
+
 ## Architecture
 
 The React dashboard is compiled into the production image and served by Fastify. Caddy terminates HTTPS on the EC2 host, while the API and PostgreSQL run in Docker Compose. PostgreSQL is the consistency boundary for authentication, ownership, plan assignment, counters, and decision history.
@@ -46,6 +81,8 @@ The React dashboard is compiled into the production image and served by Fastify.
 The delivery pipeline builds and tests the application, publishes an immutable SHA-tagged image to GHCR, assumes AWS access through GitHub OIDC, and deploys through AWS Systems Manager.
 
 ![CI/CD deployment architecture](docs/assets/ci-cd-architecture.png)
+
+<a id="engineering-decisions"></a>
 
 ## Engineering Decisions — Why These Technologies?
 
@@ -123,6 +160,25 @@ Compose starts PostgreSQL 16, waits for database health, builds the server and d
 
 Stop safely with `docker compose down`. The named PostgreSQL volume remains intact. Do not add `-v` unless deleting local data is intentional.
 
+## Configuration Reference
+
+The [`.env.example`](.env.example) file documents the local defaults. Copy it to `.env` for development; do **not** commit real credentials. Docker Compose injects the API's internal PostgreSQL URL from the `POSTGRES_*` values.
+
+| Variable | Local default | Purpose |
+| --- | --- | --- |
+| `PORT` | `3000` | Host port for the API and dashboard; the container listens on port `3000`. |
+| `POSTGRES_DB` | `quota_db` | Local PostgreSQL database name. |
+| `POSTGRES_USER` | `quota_user` | Local PostgreSQL username. |
+| `POSTGRES_PASSWORD` | `quota_password` | Development-only PostgreSQL password; replace outside local development. |
+| `DATABASE_URL` | See `.env.example` | Used when running the Node.js app or migrations outside Compose; Compose supplies an internal database URL to the API service. |
+| `DB_POOL_MAX` | `10` | Maximum PostgreSQL connections in the API connection pool. |
+| `ACCOUNT_CREATION_RATE_LIMIT_MAX` | `3` | Maximum allowed `POST /accounts` requests per client IP during the configured window. |
+| `ACCOUNT_CREATION_RATE_LIMIT_WINDOW_MS` | `900000` | Rate-limit window in milliseconds (15 minutes). |
+| `TRUSTED_PROXY_IPS` | Empty | Comma-separated trusted proxy IP addresses or CIDR ranges; leave empty without a trusted reverse proxy. |
+| `API_IMAGE` | `usage-metering-and-quota-service:local` | Compose image selection; production deployment uses immutable GHCR SHA tags. |
+
+`POSTGRES_PORT` is present in `.env.example` but is not used to publish a host-side PostgreSQL port in the current Compose file. PostgreSQL remains on the internal Compose network. See [CI/CD setup](docs/CI-CD-SETUP.md) for production-specific configuration.
+
 ## API and Demo Walkthrough
 
 | Method | Endpoint | Purpose |
@@ -171,6 +227,64 @@ Evaluator scenario:
 8. Open request history to inspect accepted/rejected snapshots.
 
 Retries of an existing request always return its original stored decision. Testing a new plan configuration therefore requires a fresh request ID.
+
+## API Quick Example
+
+This minimal end-to-end example uses the local Docker endpoint. It creates a **new** account, then authenticates to create a user, consumes units, and retries the same request. Use Bash or Git Bash; on Windows you can also use the supplied [Postman collection](postman/Usage-Metering-and-Quota-Service.postman_collection.json).
+
+**1. Create an account and receive its one-time API key:**
+
+```bash
+BASE_URL="http://localhost:3000"
+curl -i -X POST "$BASE_URL/accounts" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"README Demo Organization"}'
+```
+
+The `201 Created` response contains an `account` object and an `apiKey` string. Save the key locally; it will **not** be returned again. Never commit, share, or screenshot the real key.
+
+**2. Authenticate, create a user, and consume units:**
+
+```bash
+API_KEY="paste-your-new-api-key-here"  # Local shell only; never commit
+
+curl -i -X POST "$BASE_URL/users" \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"externalUserId":"user_001"}'
+
+curl -i -X POST "$BASE_URL/usage/consume" \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"user_001","units":10,"requestId":"readme-demo-001"}'
+```
+
+For a fresh account using the predefined Starter plan and a fresh Basic user, the consume response is:
+
+```json
+{
+  "accepted": true,
+  "requestId": "readme-demo-001",
+  "units": "10",
+  "account": { "used": "10", "remaining": "9990" },
+  "user": { "used": "10", "remaining": "990" }
+}
+```
+
+**3. Verify idempotency and inspect usage:**
+
+```bash
+# Run the exact same consume request again: same decision, no additional charge.
+curl -i -X POST "$BASE_URL/usage/consume" \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"user_001","units":10,"requestId":"readme-demo-001"}'
+
+curl -sS "$BASE_URL/usage/account" -H "x-api-key: $API_KEY"
+curl -sS "$BASE_URL/usage/history" -H "x-api-key: $API_KEY"
+```
+
+The exact retry returns the **original** decision without incrementing counters or adding a duplicate history entry. Reusing the same request ID with different units or a different user instead returns HTTP `409`. For a **new** consumption, use a **new** request ID. For additional request and response examples, see [Swagger](https://quota-fts.duckdns.org/docs) and [Postman](postman/Usage-Metering-and-Quota-Service.postman_collection.json).
 
 ## Testing and Performance
 

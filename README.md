@@ -3,9 +3,6 @@
 
 ## Professional Demo
 
-<video src="docs/assets/Quota_Service_Professional_Demo.mp4" controls preload="metadata" width="100%">
-  Your browser does not support embedded video.
-</video>
 
 **[Watch or download the professional demo](docs/assets/Quota_Service_Professional_Demo.mp4)**
 

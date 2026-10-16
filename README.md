@@ -18,8 +18,10 @@ A cloud-hosted, account-aware quota service that makes atomic usage decisions ac
 
 https://github.com/user-attachments/assets/b6ad1c08-818b-4d12-9f0a-681cd78b9566
 
-rvice-FTS/actions/workflows/ci.yml)
-[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-6BA539?style=flat-square&logo=openapiinitiative&logoColor=white)](https://quota-fts.duckdns.org/docs)
+
+
+https://github.com/user-attachments/assets/cbda936a-1129-468b-b69f-48a3c85445ce
+
 
 ### 🚀 Live on AWS — Production-Style Cloud Deployment
 

@@ -15,6 +15,7 @@
     "test:accounts": "tsx --test test/accounts.integration.test.ts",
     "test:account-rate-limit": "tsx --test test/account-rate-limit.integration.test.ts",
     "test:auth": "tsx --test test/api-key-auth.integration.test.ts",
+    "test:openapi": "tsx --test test/openapi.integration.test.ts",
     "test:static-security": "tsx --test test/static-security.integration.test.ts",
     "test:users": "tsx --test test/users.integration.test.ts",
     "test:user-plan": "tsx --test test/user-plan.integration.test.ts",
@@ -33,6 +34,8 @@
   "dependencies": {
     "@fastify/rate-limit": "11.2.0",
     "@fastify/static": "^10.1.2",
+    "@fastify/swagger": "^9.9.2",
+    "@fastify/swagger-ui": "^6.1.2",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.4",
     "fastify": "5.12.7",

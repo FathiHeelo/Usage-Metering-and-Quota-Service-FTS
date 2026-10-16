@@ -89,8 +89,10 @@ jobs:
           npm run test:plan-concurrency
           npm run test:quota-edge-cases
 
-      - name: Test static serving and API route protection
-        run: npm run test:static-security
+      - name: Test API documentation and static route protection
+        run: |
+          npm run test:openapi
+          npm run test:static-security
 
   publish:
     name: Publish immutable API image

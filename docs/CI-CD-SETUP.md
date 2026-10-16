@@ -2,7 +2,23 @@
 
 This repository contains a GitHub Actions pipeline for validating the application, publishing an immutable container image to GitHub Container Registry (GHCR), and updating only the API service on the existing EC2 host through AWS Systems Manager (SSM).
 
-The workflow files do not make an AWS deployment active by themselves. A repository owner must complete the one-time GitHub, AWS, GHCR, and EC2 configuration below. No long-lived AWS access key or SSH private key is required by GitHub Actions.
+The pipeline is active and has completed a production deployment. The setup sections below remain the operational source for auditing, reproducing, or repairing the GitHub, AWS, GHCR, and EC2 configuration. No long-lived AWS access key or SSH private key is required by GitHub Actions.
+
+![CI/CD deployment architecture](assets/ci-cd-architecture.png)
+
+### Verified production deployment
+
+| Evidence | Verified result |
+| --- | --- |
+| Git commit | `19667512637f93f87410d0978a2c7ccfe7a85ae8` |
+| CI | Backend/frontend builds and PostgreSQL integration tests completed successfully. |
+| Published image | `ghcr.io/fathiheelo/usage-metering-and-quota-service-fts:sha-19667512637f93f87410d0978a2c7ccfe7a85ae8` |
+| CD | GitHub OIDC assumed the restricted AWS role and SSM completed the production command. |
+| Runtime | API and PostgreSQL containers reported healthy. |
+| External verification | HTTPS `/health` returned `{"status":"ok"}`. |
+| Image verification | The running API container matched the expected immutable SHA image. |
+
+Rollback-on-failure is implemented in the deployment script, but this documentation does not claim that a deliberate failed deployment and automatic rollback were experimentally exercised.
 
 ## Delivery flow
 
@@ -140,16 +156,18 @@ Verify access on EC2 with an immutable tag before enabling deployment:
 docker pull ghcr.io/fathiheelo/usage-metering-and-quota-service-fts:sha-<40-character-commit>
 ```
 
-## Activate and verify
+## Activation and verification procedure
+
+The current environment has already completed these steps. Retain this procedure for a new environment, credential rotation, or recovery:
 
 1. Merge the workflow changes and confirm a pull request run passes.
 2. Confirm a push to `main` publishes both the immutable SHA tag and the optional `latest` tag in GHCR.
 3. Complete the AWS role, instance profile, GitHub Environment, variables, package visibility, and EC2 preparation above.
-4. Manually dispatch is intentionally not configured. The first deployment begins only after the next successful `CI` run caused by a push to `main`.
+4. Manual dispatch is intentionally not configured. Deployment begins after a successful `CI` run caused by a push to `main`.
 5. Watch the `Deploy production` workflow. It reports the SSM command ID, remote status, and sanitized deployment output.
 6. Verify `https://quota-fts.duckdns.org/health` and one authenticated read-only endpoint after deployment.
 
-This repository change was validated locally only. It does not assert that the AWS role, SSM managed node, GHCR visibility, or first live deployment has been configured successfully.
+The verified deployment above establishes that OIDC, the deployment role, SSM managed node, GHCR pull access, health checks, and immutable-image selection worked for that commit. Configuration drift after that deployment remains an operational risk and should be diagnosed with the checks below.
 
 ## Health verification and rollback
 

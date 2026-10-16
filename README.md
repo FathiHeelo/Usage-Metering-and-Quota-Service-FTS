@@ -340,9 +340,7 @@ PostgreSQL contains seven core tables. Plans and assignments describe current po
 
 ### Database ERD (Entity Relationship Diagram)
 
-![Schema-accurate database entity relationship diagram](docs/assets/database-erd.png)
-
-This simplified ERD is derived from [`src/db/schema.ts`](src/db/schema.ts), which remains the authoritative schema. It intentionally replaces the supplied visual reference because that reference contained application-assignment and idempotency tables that do not exist in this service. The checked-in [editable SVG source](docs/assets/database-erd.svg) and Mermaid model below both describe the actual seven tables.
+The Mermaid ERD below is derived from [`src/db/schema.ts`](src/db/schema.ts), which remains the authoritative schema. It describes the service's actual seven tables and intentionally excludes application-assignment and idempotency tables that do not exist in this service.
 
 <details>
 <summary>View the editable Mermaid relationship model</summary>

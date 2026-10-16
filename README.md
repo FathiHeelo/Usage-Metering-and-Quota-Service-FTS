@@ -1,8 +1,9 @@
 
 # Usage Metering & Quota Service
 
-https://github.com/user-attachments/assets/cbda936a-1129-468b-b69f-48a3c85445ce
+[![Watch Project Demo](https://img.youtube.com/vi/u_M7eTvv5NU/hqdefault.jpg)](https://youtu.be/u_M7eTvv5NU)
 
+▶️ [Watch the Full Demo on YouTube](https://youtu.be/u_M7eTvv5NU)
 ## Project Overview
 
 This service lets an application meter usage against two budgets: one monthly allowance shared by the account and one allowance assigned to each user. A request consumes units only when both scopes have enough monthly capacity and both plans permit the request size. Accounts can use predefined or tenant-owned custom plans, change assignments without erasing usage, and inspect every accepted or rejected decision. The central engineering challenge is maintaining correct accounting when requests, retries, and plan changes happen concurrently. PostgreSQL transactions, deterministic row locking, tenant-scoped constraints, and account-scoped idempotency provide those guarantees.

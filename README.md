@@ -16,9 +16,6 @@ A cloud-hosted, account-aware quota service that makes atomic usage decisions ac
 [![Fastify](https://img.shields.io/badge/Fastify-5-111111?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
 [![HTTPS Enabled](https://img.shields.io/badge/HTTPS-Enabled-0F766E?style=flat-square&logo=letsencrypt&logoColor=white)](https://quota-fts.duckdns.org)
 
-https://github.com/user-attachments/assets/b6ad1c08-818b-4d12-9f0a-681cd78b9566
-
-
 
 https://github.com/user-attachments/assets/cbda936a-1129-468b-b69f-48a3c85445ce
 

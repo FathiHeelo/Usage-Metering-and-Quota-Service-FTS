@@ -84,6 +84,11 @@ jobs:
           npm run test:usage
           npm run test:usage-read
 
+      - name: Test active-plan visibility and audit timestamps
+        run: |
+          npm run test:active-plans
+          npm run test:updated-at
+
       - name: Test transaction and concurrency behavior
         run: |
           npm run test:plan-concurrency
@@ -94,10 +99,42 @@ jobs:
           npm run test:openapi
           npm run test:static-security
 
+  browser-e2e:
+    name: Browser E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix client
+
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run isolated browser workflow
+        run: npm run test:e2e
+
   publish:
     name: Publish immutable API image
     if: github.event_name == 'push'
-    needs: validate
+    needs: [validate, browser-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

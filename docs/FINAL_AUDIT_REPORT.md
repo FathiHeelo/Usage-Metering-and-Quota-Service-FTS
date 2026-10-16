@@ -1,5 +1,34 @@
 # Final Engineering Audit
 
+> [!IMPORTANT]
+> **Historical audit snapshot.** This audit was completed on October 15, 2026 against commit [`419e7b43def86aa1073df7e17272f7672034bb20`](https://github.com/FathiHeelo/Usage-Metering-and-Quota-Service-FTS/commit/419e7b43def86aa1073df7e17272f7672034bb20). It is preserved as the original point-in-time review. Several findings were resolved afterward; use the summary below for current status and read the original findings in their historical context.
+
+## Post-Audit Resolution Summary
+
+This summary records repository-backed changes made after the audited commit. It does not rewrite the original evidence or imply that the remaining operational limitations are resolved.
+
+| Original finding | Current status | Post-audit evidence |
+| --- | --- | --- |
+| P1-01: public account creation had no abuse control | **Resolved for the current single-instance deployment.** `POST /accounts` now has configurable per-client-IP rate limiting and proxy-aware IP handling. The limiter remains process-local. | [`src/config.ts`](../src/config.ts), [`src/app.ts`](../src/app.ts), [`account.routes.ts`](../src/modules/accounts/account.routes.ts), [`account-rate-limit.integration.test.ts`](../test/account-rate-limit.integration.test.ts) |
+| P1-02: no HTTPS/public reverse-proxy deployment | **Resolved for the live demo deployment, not for default local Compose.** The deployed EC2 service is documented behind Caddy-managed HTTPS; the repository's normal Compose topology intentionally remains API plus PostgreSQL. | [`README.md`](../README.md#architecture), [`CI-CD-SETUP.md`](CI-CD-SETUP.md), [`deploy.yml`](../.github/workflows/deploy.yml) |
+| P2-01 and P2-02: UTC rollover and concurrency/rollback edges lacked direct tests | **Resolved.** Deterministic PostgreSQL cases cover request-entry UTC month behavior, concurrent conflicting IDs, cross-user account contention, and transaction rollback after controlled history-persistence failure. | [`quota-edge-cases.integration.test.ts`](../test/quota-edge-cases.integration.test.ts), [`ci.yml`](../.github/workflows/ci.yml) |
+| P2-03: normal/stress benchmark evidence was not repository-portable | **Resolved as evidence preservation.** Sanitized source-derived JSON summaries and their provenance are committed. These are local Docker measurements, not AWS capacity claims. | [`load-tests/results/README.md`](../load-tests/results/README.md), [`load-tests/results/verified/`](../load-tests/results/verified/) |
+| P2-05: frontend workflows had no automated browser test | **Resolved with focused coverage.** Playwright exercises the real React UI and API against a disposable PostgreSQL container; CI installs Chromium and runs it as a separate required job. | [`quota-dashboard.spec.ts`](../test/e2e/quota-dashboard.spec.ts), [`run-e2e.ts`](../scripts/run-e2e.ts), [`playwright.config.ts`](../playwright.config.ts), [`ci.yml`](../.github/workflows/ci.yml) |
+| P3-01: plan mutations did not advance `updated_at` | **Resolved.** Account-plan, user-plan, and custom-plan mutations update their timestamps and have a focused regression test. | [`account.service.ts`](../src/modules/accounts/account.service.ts), [`user.service.ts`](../src/modules/users/user.service.ts), [`plan.service.ts`](../src/modules/plans/plan.service.ts), [`updated-at.integration.test.ts`](../test/updated-at.integration.test.ts) |
+| P3-03: current plan identity was inferred in the dashboard | **Partially resolved.** Authenticated account and usage responses now return authoritative active-plan identity and limits, and the UI consumes them. The absence of a paginated list-all-users endpoint remains. | [`api-key-auth.ts`](../src/plugins/api-key-auth.ts), [`usage.service.ts`](../src/modules/usage/usage.service.ts), [`App.tsx`](../client/src/App.tsx), [`active-plan.integration.test.ts`](../test/active-plan.integration.test.ts) |
+
+### Remaining limitations after the audit
+
+- `/health` is still a process liveness check rather than a database readiness probe.
+- Account-creation throttling is in-memory and is not coordinated across multiple API replicas or restarts; broader admission controls and explicit identifier length limits remain future hardening.
+- The browser demo still stores its API key in `sessionStorage`, and the API does not provide a paginated list-all-users endpoint.
+- The deployment remains a single-host Docker Compose design without automated backups, production metrics/tracing, autoscaling, or multi-region failover.
+- Playwright provides one focused Chromium workflow, not exhaustive browser, accessibility, or responsive-device coverage.
+- The committed k6 results describe recorded local workloads only; they do not establish maximum throughput or AWS production capacity.
+- Native ARM64 execution remains unverified, and base-image digest pinning remains an operational improvement.
+
+---
+
 Audit date: 2026-10-15  
 Audited branch: `audit/final-engineering-review`  
 Audited commit: `419e7b43def86aa1073df7e17272f7672034bb20`  

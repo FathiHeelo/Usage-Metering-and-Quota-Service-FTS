@@ -20,8 +20,9 @@ Predefined plans are global, have no owner, and are read-only. Custom plans belo
 
 - Real PostgreSQL integration tests cover accepted/rejected accounting, rollback, request conflicts, account isolation, plan-change serialization, UTC rollover, and cross-user contention.
 - `npm run test:e2e` uses a labeled, ephemeral PostgreSQL 16 container with `tmpfs`, applies migrations and seed data, runs one Chromium workflow, and removes only that generated container.
+- CI runs the active-plan and timestamp regressions against its isolated PostgreSQL service and runs Playwright in a separate required job with its own disposable database.
 - k6 evidence and limitations are documented in [`../load-tests/results/README.md`](../load-tests/results/README.md); compact source-derived JSON summaries live in [`../load-tests/results/verified/`](../load-tests/results/verified/).
-- The comprehensive final audit remains in [FINAL_AUDIT_REPORT.md](FINAL_AUDIT_REPORT.md).
+- The [October 15, 2026 final audit](FINAL_AUDIT_REPORT.md) is retained as a historical snapshot with a post-audit resolution summary.
 
 ## Operations
 

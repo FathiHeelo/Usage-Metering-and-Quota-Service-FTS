@@ -117,7 +117,14 @@
                 "example": {
                   "account": {
                     "id": "f4f734c2-ff65-4aac-9da9-64583c476c92",
-                    "name": "DocuApp"
+                    "name": "DocuApp",
+                    "currentPlan": {
+                      "id": "8d040520-a733-436b-b16a-652f59a38345",
+                      "name": "Starter",
+                      "scope": "ACCOUNT",
+                      "monthlyAllowance": "10000",
+                      "maxUnitsPerRequest": "100"
+                    }
                   }
                 }
               }
@@ -459,7 +466,14 @@
                   "month": "2026-10",
                   "used": "125",
                   "monthlyLimit": "10000",
-                  "remaining": "9875"
+                  "remaining": "9875",
+                  "currentPlan": {
+                    "id": "8d040520-a733-436b-b16a-652f59a38345",
+                    "name": "Starter",
+                    "scope": "ACCOUNT",
+                    "monthlyAllowance": "10000",
+                    "maxUnitsPerRequest": "100"
+                  }
                 }
               }
             }
@@ -491,7 +505,14 @@
                   "month": "2026-10",
                   "used": "125",
                   "monthlyLimit": "1000",
-                  "remaining": "875"
+                  "remaining": "875",
+                  "currentPlan": {
+                    "id": "0c5a4adb-048b-4a63-ae69-791ac2580f36",
+                    "name": "Basic",
+                    "scope": "USER",
+                    "monthlyAllowance": "1000",
+                    "maxUnitsPerRequest": "20"
+                  }
                 }
               }
             }
@@ -660,6 +681,18 @@
           }
         ]
       },
+      "ActivePlan": {
+        "type": "object",
+        "required": ["id", "name", "scope", "monthlyAllowance", "maxUnitsPerRequest"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "scope": { "$ref": "#/components/schemas/QuotaScope" },
+          "monthlyAllowance": { "$ref": "#/components/schemas/BigIntString" },
+          "maxUnitsPerRequest": { "$ref": "#/components/schemas/BigIntString" }
+        },
+        "description": "The plan currently assigned to the account or user, read directly from PostgreSQL."
+      },
       "QuotaScope": {
         "type": "string",
         "enum": ["ACCOUNT", "USER"]
@@ -717,7 +750,18 @@
       "AuthenticatedAccountResponse": {
         "type": "object",
         "required": ["account"],
-        "properties": { "account": { "$ref": "#/components/schemas/Account" } }
+        "properties": {
+          "account": {
+            "allOf": [
+              { "$ref": "#/components/schemas/Account" },
+              {
+                "type": "object",
+                "required": ["currentPlan"],
+                "properties": { "currentPlan": { "$ref": "#/components/schemas/ActivePlan" } }
+              }
+            ]
+          }
+        }
       },
       "AccountWithPlanResponse": {
         "type": "object",
@@ -836,24 +880,26 @@
       },
       "AccountUsageResponse": {
         "type": "object",
-        "required": ["accountId", "month", "used", "monthlyLimit", "remaining"],
+        "required": ["accountId", "month", "used", "monthlyLimit", "remaining", "currentPlan"],
         "properties": {
           "accountId": { "type": "string", "format": "uuid" },
           "month": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" },
           "used": { "$ref": "#/components/schemas/BigIntString" },
           "monthlyLimit": { "$ref": "#/components/schemas/BigIntString" },
-          "remaining": { "$ref": "#/components/schemas/BigIntString" }
+          "remaining": { "$ref": "#/components/schemas/BigIntString" },
+          "currentPlan": { "$ref": "#/components/schemas/ActivePlan" }
         }
       },
       "UserUsageResponse": {
         "type": "object",
-        "required": ["externalUserId", "month", "used", "monthlyLimit", "remaining"],
+        "required": ["externalUserId", "month", "used", "monthlyLimit", "remaining", "currentPlan"],
         "properties": {
           "externalUserId": { "type": "string" },
           "month": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" },
           "used": { "$ref": "#/components/schemas/BigIntString" },
           "monthlyLimit": { "$ref": "#/components/schemas/BigIntString" },
-          "remaining": { "$ref": "#/components/schemas/BigIntString" }
+          "remaining": { "$ref": "#/components/schemas/BigIntString" },
+          "currentPlan": { "$ref": "#/components/schemas/ActivePlan" }
         }
       },
       "UsageHistoryItem": {

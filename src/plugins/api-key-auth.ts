@@ -2,11 +2,20 @@ import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../db/index.js";
-import { accounts, apiKeys } from "../db/schema.js";
+import { accounts, apiKeys, plans } from "../db/schema.js";
+
+export interface ActivePlan {
+  id: string;
+  name: string;
+  scope: "ACCOUNT" | "USER";
+  monthlyAllowance: string;
+  maxUnitsPerRequest: string;
+}
 
 export interface AuthenticatedAccount {
   id: string;
   name: string;
+  currentPlan: ActivePlan;
 }
 
 declare module "fastify" {
@@ -40,9 +49,15 @@ export async function authenticateApiKey(
         accountId: accounts.id,
         accountName: accounts.name,
         revokedAt: apiKeys.revokedAt,
+        planId: plans.id,
+        planName: plans.name,
+        planScope: plans.scope,
+        monthlyAllowance: plans.monthlyAllowance,
+        maxUnitsPerRequest: plans.maxUnitsPerRequest,
       })
       .from(apiKeys)
       .innerJoin(accounts, eq(apiKeys.accountId, accounts.id))
+      .innerJoin(plans, eq(accounts.currentPlanId, plans.id))
       .where(eq(apiKeys.keyHash, keyHash))
       .limit(1);
 
@@ -54,6 +69,13 @@ export async function authenticateApiKey(
     request.authenticatedAccount = {
       id: match.accountId,
       name: match.accountName,
+      currentPlan: {
+        id: match.planId,
+        name: match.planName,
+        scope: match.planScope,
+        monthlyAllowance: match.monthlyAllowance.toString(),
+        maxUnitsPerRequest: match.maxUnitsPerRequest.toString(),
+      },
     };
   } catch (error: unknown) {
     request.log.error({ err: error }, "API key authentication failed");

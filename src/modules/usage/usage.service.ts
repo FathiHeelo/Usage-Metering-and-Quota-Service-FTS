@@ -351,7 +351,11 @@ export async function getAccountUsage(
   const [account] = await db
     .select({
       id: accounts.id,
-      monthlyLimit: plans.monthlyAllowance,
+      planId: plans.id,
+      planName: plans.name,
+      planScope: plans.scope,
+      monthlyAllowance: plans.monthlyAllowance,
+      maxUnitsPerRequest: plans.maxUnitsPerRequest,
     })
     .from(accounts)
     .innerJoin(plans, eq(accounts.currentPlanId, plans.id))
@@ -378,8 +382,15 @@ export async function getAccountUsage(
     accountId: account.id,
     month,
     used: used.toString(),
-    monthlyLimit: account.monthlyLimit.toString(),
-    remaining: remaining(account.monthlyLimit, used).toString(),
+    monthlyLimit: account.monthlyAllowance.toString(),
+    remaining: remaining(account.monthlyAllowance, used).toString(),
+    currentPlan: {
+      id: account.planId,
+      name: account.planName,
+      scope: account.planScope,
+      monthlyAllowance: account.monthlyAllowance.toString(),
+      maxUnitsPerRequest: account.maxUnitsPerRequest.toString(),
+    },
   };
 }
 
@@ -393,7 +404,11 @@ export async function getUserUsage(
     .select({
       id: users.id,
       externalUserId: users.externalUserId,
-      monthlyLimit: plans.monthlyAllowance,
+      planId: plans.id,
+      planName: plans.name,
+      planScope: plans.scope,
+      monthlyAllowance: plans.monthlyAllowance,
+      maxUnitsPerRequest: plans.maxUnitsPerRequest,
     })
     .from(users)
     .innerJoin(plans, eq(users.currentPlanId, plans.id))
@@ -425,8 +440,15 @@ export async function getUserUsage(
     externalUserId: user.externalUserId,
     month,
     used: used.toString(),
-    monthlyLimit: user.monthlyLimit.toString(),
-    remaining: remaining(user.monthlyLimit, used).toString(),
+    monthlyLimit: user.monthlyAllowance.toString(),
+    remaining: remaining(user.monthlyAllowance, used).toString(),
+    currentPlan: {
+      id: user.planId,
+      name: user.planName,
+      scope: user.planScope,
+      monthlyAllowance: user.monthlyAllowance.toString(),
+      maxUnitsPerRequest: user.maxUnitsPerRequest.toString(),
+    },
   };
 }
 

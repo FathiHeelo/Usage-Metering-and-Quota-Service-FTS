@@ -27,6 +27,7 @@ interface Fixture {
   account: CreatedAccount;
   user: CreatedUser;
   accountPlanId: string;
+  userPlanId: string;
 }
 
 interface HistoryResponse {
@@ -156,7 +157,12 @@ async function createFixture(label: string): Promise<Fixture> {
     .set({ currentPlanId: userPlan.id })
     .where(eq(users.id, user.user.id));
 
-  return { account, user, accountPlanId: accountPlan.id };
+  return {
+    account,
+    user,
+    accountPlanId: accountPlan.id,
+    userPlanId: userPlan.id,
+  };
 }
 
 async function consume(
@@ -217,6 +223,13 @@ test("usage read APIs", async (t) => {
       used: "10",
       monthlyLimit: "5",
       remaining: "0",
+      currentPlan: {
+        id: owner.accountPlanId,
+        name: "Owner Usage Read Account Plan",
+        scope: "ACCOUNT",
+        monthlyAllowance: "5",
+        maxUnitsPerRequest: "10",
+      },
     });
   });
 
@@ -251,6 +264,13 @@ test("usage read APIs", async (t) => {
       used: "10",
       monthlyLimit: "15",
       remaining: "5",
+      currentPlan: {
+        id: owner.userPlanId,
+        name: "Owner Usage Read User Plan",
+        scope: "USER",
+        monthlyAllowance: "15",
+        maxUnitsPerRequest: "10",
+      },
     });
     assert.equal(previousResponse.statusCode, 200);
     assert.equal(previousResponse.json().month, previousMonth);

@@ -44,6 +44,7 @@ import { api, ApiError } from "./api";
 import type {
   Account,
   AccountUsage,
+  ActivePlan,
   ConsumeInput,
   ConsumeResult,
   HistoryItem,
@@ -61,7 +62,7 @@ type Page = "dashboard" | "users" | "plans" | "playground" | "history";
 interface Session {
   apiKey: string;
   account: Account;
-  accountPlan?: PlanSummary;
+  accountPlan?: ActivePlan;
 }
 
 interface ToastState {
@@ -117,23 +118,6 @@ function humanMonth(month: string): string {
   }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
 }
 
-function inferPlan(
-  plans: Plan[],
-  scope: Scope,
-  monthlyLimit?: string,
-  preferredId?: string,
-): Plan | undefined {
-  if (preferredId) {
-    const preferred = plans.find((plan) => plan.id === preferredId && plan.scope === scope);
-    if (preferred) return preferred;
-  }
-  if (!monthlyLimit) return undefined;
-  const matches = plans.filter(
-    (plan) => plan.scope === scope && plan.monthlyAllowance === monthlyLimit,
-  );
-  return matches.length === 1 ? matches[0] : undefined;
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong. Please try again.";
 }
@@ -180,26 +164,16 @@ export function App() {
     });
   }
 
-  function updateAccountPlan(plan: PlanSummary) {
+  function updateAccountPlan(plan: ActivePlan) {
     if (!session) return;
     setSession({ ...session, accountPlan: plan });
     setRefreshVersion((value) => value + 1);
   }
 
-  async function establishSession(apiKey: string, preferredPlan?: PlanSummary) {
+  async function establishSession(apiKey: string, _preferredPlan?: PlanSummary) {
     const { account } = await api.getMe(apiKey);
-    let accountPlan = preferredPlan;
-    try {
-      const [{ plans }, usage] = await Promise.all([
-        api.getPlans(apiKey),
-        api.getAccountUsage(apiKey),
-      ]);
-      const inferred = inferPlan(plans, "ACCOUNT", usage.monthlyLimit, preferredPlan?.id);
-      if (inferred) accountPlan = { id: inferred.id, name: inferred.name };
-    } catch {
-      // Authentication succeeded; individual dashboard panels provide retry UI.
-    }
-    const next = { apiKey, account, accountPlan };
+    const { currentPlan: accountPlan, ...accountIdentity } = account;
+    const next = { apiKey, account: accountIdentity, accountPlan };
     setSession(next);
     setKnownUsers(readKnownUsers(account.id));
   }
@@ -466,12 +440,11 @@ function DashboardPage({
 }: {
   apiKey: string;
   account: Account;
-  accountPlan?: PlanSummary;
+  accountPlan?: ActivePlan;
   refreshVersion: number;
   onNavigate: (page: Page) => void;
 }) {
   const [usage, setUsage] = useState<AccountUsage | null>(null);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -479,19 +452,18 @@ function DashboardPage({
   async function load() {
     setLoading(true); setError(null);
     try {
-      const [usageResult, planResult, historyResult] = await Promise.all([
+      const [usageResult, historyResult] = await Promise.all([
         api.getAccountUsage(apiKey),
-        api.getPlans(apiKey),
         api.getHistory(apiKey, { page: 1, limit: 5 }),
       ]);
-      setUsage(usageResult); setPlans(planResult.plans); setHistory(historyResult.items);
+      setUsage(usageResult); setHistory(historyResult.items);
     } catch (cause) { setError(errorMessage(cause)); }
     finally { setLoading(false); }
   }
 
   useEffect(() => { void load(); }, [apiKey, refreshVersion]);
 
-  const plan = usage ? inferPlan(plans, "ACCOUNT", usage.monthlyLimit, accountPlan?.id) : undefined;
+  const plan = usage?.currentPlan ?? accountPlan;
   const percent = usage && toNumber(usage.monthlyLimit) > 0
     ? Math.min(100, (toNumber(usage.used) / toNumber(usage.monthlyLimit)) * 100)
     : 0;
@@ -508,7 +480,7 @@ function DashboardPage({
             <MetricCard icon={<CircleGauge />} label="Monthly allowance" value={formatUnits(usage.monthlyLimit)} hint="Maximum account units this UTC month" accent="blue" />
             <MetricCard icon={<Activity />} label="Used units" value={formatUnits(usage.used)} hint={`${percent.toFixed(1)}% of the account allowance`} accent="violet" />
             <MetricCard icon={<Sparkles />} label="Remaining units" value={formatUnits(usage.remaining)} hint="Available before account-level rejection" accent="green" />
-            <MetricCard icon={<Zap />} label="Max per request" value={plan ? formatUnits(plan.maxUnitsPerRequest) : "—"} hint={plan ? `Applied by ${plan.name}` : "Unavailable when plan limits are ambiguous"} accent="amber" />
+            <MetricCard icon={<Zap />} label="Max per request" value={plan ? formatUnits(plan.maxUnitsPerRequest) : "—"} hint={plan ? `Applied by ${plan.name}` : "Current plan is unavailable"} accent="amber" />
           </section>
           <section className="dashboard-grid">
             <div className="card quota-card">
@@ -564,9 +536,12 @@ function UsersPage({ apiKey, knownUsers, onKnownUser, notify }: { apiKey: string
       .then((result) => {
         setUsage(result);
         const known = knownUsers.find((user) => user.externalUserId === selectedId);
-        const plan = inferPlan(plans, "USER", result.monthlyLimit, known?.plan?.id);
-        onKnownUser({ ...known, externalUserId: selectedId, plan: plan ? { id: plan.id, name: plan.name } : known?.plan });
-        if (plan) setSelectedPlanId(plan.id);
+        onKnownUser({
+          ...known,
+          externalUserId: selectedId,
+          plan: { id: result.currentPlan.id, name: result.currentPlan.name },
+        });
+        setSelectedPlanId(result.currentPlan.id);
       })
       .catch((cause) => setError(errorMessage(cause)))
       .finally(() => setBusy(null));
@@ -614,12 +589,12 @@ function UsersPage({ apiKey, knownUsers, onKnownUser, notify }: { apiKey: string
       <InfoBanner icon={<ShieldCheck />} title="Account ownership is automatic">The API key determines the account. User forms never accept an account ID, so one tenant cannot create or inspect another tenant's users.</InfoBanner>
       {error && <InlineMessage tone="error" action={<button onClick={() => setError(null)}>Dismiss</button>}>{error}</InlineMessage>}
       <section className="split-grid">
-        <form className="card form-card" onSubmit={createUser}>
+        <form className="card form-card" aria-label="Create user" onSubmit={createUser}>
           <div className="card-heading"><div className="heading-icon blue"><Plus /></div><div><h2>Create a user</h2><p>New users start on the predefined Basic USER plan.</p></div></div>
           <Field label="External user identifier" helper="The stable ID your application already uses, such as user_001. It must be unique inside this account."><input value={newId} onChange={(event) => setNewId(event.target.value)} placeholder="user_001" /></Field>
           <button className="button button-primary" disabled={busy === "create"}>{busy === "create" ? <><Spinner /> Creating…</> : <><Plus size={17} /> Create user</>}</button>
         </form>
-        <form className="card form-card" onSubmit={lookup}>
+        <form className="card form-card" aria-label="Find user" onSubmit={lookup}>
           <div className="card-heading"><div className="heading-icon violet"><Search /></div><div><h2>Find a user</h2><p>Look up current usage with an exact external identifier.</p></div></div>
           <Field label="External user identifier" helper="The service intentionally does not expose cross-account search or a global user directory."><input value={lookupId} onChange={(event) => setLookupId(event.target.value)} placeholder="user_001" /></Field>
           <button className="button button-secondary"><Search size={17} /> View usage</button>
@@ -632,7 +607,7 @@ function UsersPage({ apiKey, knownUsers, onKnownUser, notify }: { apiKey: string
       {selectedId && (
         <section className="card user-detail-card">
           <div className="card-heading"><div><span className="eyebrow">User detail</span><h2>{selectedId}</h2><p>Monthly user quota for {usage ? humanMonth(usage.month) : "the current UTC month"}.</p></div><StatusBadge tone={percent >= 100 ? "danger" : percent >= 80 ? "warning" : "success"}>{percent >= 100 ? "Exhausted" : percent >= 80 ? "Approaching limit" : "Healthy"}</StatusBadge></div>
-          {busy === "usage" ? <PageLoader label="Loading user usage…" compact /> : usage && <div className="user-detail-grid"><div className="quota-summary"><div className="progress-track"><span style={{ width: `${percent}%` }} /></div><div className="summary-numbers"><div><span>Used</span><strong>{formatUnits(usage.used)}</strong></div><div><span>Remaining</span><strong>{formatUnits(usage.remaining)}</strong></div><div><span>Monthly limit</span><strong>{formatUnits(usage.monthlyLimit)}</strong></div></div></div><div className="plan-control"><Field label="Current user plan" helper="Changing the plan affects future decisions. Previously consumed units remain recorded."><select value={selectedPlanId || selectedKnown?.plan?.id || ""} onChange={(event) => setSelectedPlanId(event.target.value)}><option value="">Choose a USER plan</option>{userPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {formatUnits(plan.monthlyAllowance)}/month</option>)}</select></Field><button className="button button-primary" onClick={changePlan} disabled={!selectedPlanId || busy === "plan"}>{busy === "plan" ? <><Spinner /> Updating…</> : "Apply plan"}</button></div></div>}
+          {busy === "usage" ? <PageLoader label="Loading user usage…" compact /> : usage && <div className="user-detail-grid"><div className="quota-summary"><div className="progress-track"><span style={{ width: `${percent}%` }} /></div><div className="summary-numbers"><div><span>Used</span><strong>{formatUnits(usage.used)}</strong></div><div><span>Remaining</span><strong>{formatUnits(usage.remaining)}</strong></div><div><span>Monthly limit</span><strong>{formatUnits(usage.monthlyLimit)}</strong></div></div></div><div className="plan-control"><Field label={`Current user plan: ${usage.currentPlan.name}`} helper={`${formatUnits(usage.currentPlan.monthlyAllowance)} units/month · ${formatUnits(usage.currentPlan.maxUnitsPerRequest)} max/request. Changing the plan preserves consumed units.`}><select value={selectedPlanId || usage.currentPlan.id || selectedKnown?.plan?.id || ""} onChange={(event) => setSelectedPlanId(event.target.value)}><option value="">Choose a USER plan</option>{userPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {formatUnits(plan.monthlyAllowance)}/month</option>)}</select></Field><button className="button button-primary" onClick={changePlan} disabled={!selectedPlanId || busy === "plan"}>{busy === "plan" ? <><Spinner /> Updating…</> : "Apply plan"}</button></div></div>}
         </section>
       )}
       <InfoBanner icon={<CircleGauge />} title="Account quota vs. user quota">Account quota caps total organization usage. User quota caps one individual. A request is accepted only when both have enough allowance and both per-request limits permit it.</InfoBanner>
@@ -640,7 +615,7 @@ function UsersPage({ apiKey, knownUsers, onKnownUser, notify }: { apiKey: string
   );
 }
 
-function PlansPage({ apiKey, accountPlan, knownUsers, onAccountPlanChanged, onKnownUser, notify }: { apiKey: string; accountPlan?: PlanSummary; knownUsers: KnownUser[]; onAccountPlanChanged: (plan: PlanSummary) => void; onKnownUser: (user: KnownUser) => void; notify: (toast: ToastState) => void }) {
+function PlansPage({ apiKey, accountPlan, knownUsers, onAccountPlanChanged, onKnownUser, notify }: { apiKey: string; accountPlan?: ActivePlan; knownUsers: KnownUser[]; onAccountPlanChanged: (plan: ActivePlan) => void; onKnownUser: (user: KnownUser) => void; notify: (toast: ToastState) => void }) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -664,7 +639,8 @@ function PlansPage({ apiKey, accountPlan, knownUsers, onAccountPlanChanged, onKn
     setBusy("account"); setError(null);
     try {
       const { account } = await api.changeAccountPlan(apiKey, accountPlanId);
-      onAccountPlanChanged(account.plan);
+      const usage = await api.getAccountUsage(apiKey);
+      onAccountPlanChanged(usage.currentPlan);
       notify({ tone: "success", message: `Account plan changed to ${account.plan.name}. Existing monthly usage was preserved.` });
     } catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(null); }
@@ -732,11 +708,10 @@ function PlanFormModal({ title, submitLabel, initial, lockScope = false, onClose
   return <Modal title={title} onClose={onClose}><form onSubmit={submit} className="stack-lg"><Field label="Plan name" helper="Unique inside this account and scope. Use a name your team will recognize."><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Growth" autoFocus /></Field><Field label="Plan scope" helper="ACCOUNT limits the whole organization. USER limits one individual."><select value={scope} onChange={(event) => setScope(event.target.value as Scope)} disabled={lockScope}><option value="USER">USER — individual allowance</option><option value="ACCOUNT">ACCOUNT — organization allowance</option></select></Field><div className="inline-fields"><Field label="Monthly allowance" helper="Maximum units available during one UTC calendar month."><input type="number" min="0" step="1" value={monthly} onChange={(event) => setMonthly(event.target.value)} /></Field><Field label="Maximum units per request" helper="Largest single consumption request that can be accepted."><input type="number" min="0" step="1" value={maxRequest} onChange={(event) => setMaxRequest(event.target.value)} /></Field></div>{error && <InlineMessage tone="error">{error}</InlineMessage>}<div className="modal-actions"><button type="button" className="button button-ghost" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={loading}>{loading ? <><Spinner /> Saving…</> : submitLabel}</button></div></form></Modal>;
 }
 
-function PlaygroundPage({ apiKey, accountPlan, knownUsers, notify, onUsageChanged }: { apiKey: string; accountPlan?: PlanSummary; knownUsers: KnownUser[]; notify: (toast: ToastState) => void; onUsageChanged: () => void }) {
+function PlaygroundPage({ apiKey, accountPlan, knownUsers, notify, onUsageChanged }: { apiKey: string; accountPlan?: ActivePlan; knownUsers: KnownUser[]; notify: (toast: ToastState) => void; onUsageChanged: () => void }) {
   const [userId, setUserId] = useState(knownUsers[0]?.externalUserId ?? "");
   const [units, setUnits] = useState("10");
   const [requestId, setRequestId] = useState(newRequestId);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [accountUsage, setAccountUsage] = useState<AccountUsage | null>(null);
   const [userUsage, setUserUsage] = useState<UserUsage | null>(null);
   const [result, setResult] = useState<ConsumeResult | null>(null);
@@ -746,8 +721,8 @@ function PlaygroundPage({ apiKey, accountPlan, knownUsers, notify, onUsageChange
 
   async function loadContext(targetUser = userId) {
     try {
-      const [planResult, accountResult] = await Promise.all([api.getPlans(apiKey), api.getAccountUsage(apiKey)]);
-      setPlans(planResult.plans); setAccountUsage(accountResult);
+      const accountResult = await api.getAccountUsage(apiKey);
+      setAccountUsage(accountResult);
       if (targetUser.trim()) setUserUsage(await api.getUserUsage(apiKey, targetUser.trim()));
       else setUserUsage(null);
     } catch (cause) {
@@ -773,9 +748,8 @@ function PlaygroundPage({ apiKey, accountPlan, knownUsers, notify, onUsageChange
     finally { setLoading(false); }
   }
 
-  const known = knownUsers.find((user) => user.externalUserId === userId);
-  const activeAccountPlan = accountUsage ? inferPlan(plans, "ACCOUNT", accountUsage.monthlyLimit, accountPlan?.id) : undefined;
-  const activeUserPlan = userUsage ? inferPlan(plans, "USER", userUsage.monthlyLimit, known?.plan?.id) : undefined;
+  const activeAccountPlan = accountUsage?.currentPlan ?? accountPlan;
+  const activeUserPlan = userUsage?.currentPlan;
   const requestLimit = Math.min(
     activeAccountPlan ? toNumber(activeAccountPlan.maxUnitsPerRequest) : Number.MAX_SAFE_INTEGER,
     activeUserPlan ? toNumber(activeUserPlan.maxUnitsPerRequest) : Number.MAX_SAFE_INTEGER,

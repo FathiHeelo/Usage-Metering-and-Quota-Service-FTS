@@ -128,7 +128,7 @@ export async function changeAccountPlan(
 
     const [updatedAccount] = await tx
       .update(accounts)
-      .set({ currentPlanId: plan.id })
+      .set({ currentPlanId: plan.id, updatedAt: new Date() })
       .where(eq(accounts.id, accountId))
       .returning({ id: accounts.id, name: accounts.name });
 

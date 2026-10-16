@@ -1,6 +1,7 @@
 import type {
   Account,
   AccountUsage,
+  AuthenticatedAccount,
   ConsumeInput,
   ConsumeResult,
   HistoryResponse,
@@ -74,7 +75,7 @@ export const api = {
     );
   },
   getMe(apiKey: string) {
-    return request<{ account: Account }>("/me", { apiKey });
+    return request<{ account: AuthenticatedAccount }>("/me", { apiKey });
   },
   getPlans(apiKey: string) {
     return request<{ plans: Plan[] }>("/plans", { apiKey });

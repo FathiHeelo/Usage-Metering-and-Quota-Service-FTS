@@ -6,8 +6,8 @@
 https://github.com/user-attachments/assets/31f52d56-880b-4415-92b3-346ebdecd9dd
 
 
-▶️ Watch the Full Demo on YouTube (1080p)
-## Project Overview
+▶️ Watch the Full Demo on YouTube (1080p)(https://youtu.be/u_M7eTvv5NU)
+## Project Overview 
 
 This service lets an application meter usage against two budgets: one monthly allowance shared by the account and one allowance assigned to each user. A request consumes units only when both scopes have enough monthly capacity and both plans permit the request size. Accounts can use predefined or tenant-owned custom plans, change assignments without erasing usage, and inspect every accepted or rejected decision. The central engineering challenge is maintaining correct accounting when requests, retries, and plan changes happen concurrently. PostgreSQL transactions, deterministic row locking, tenant-scoped constraints, and account-scoped idempotency provide those guarantees.
 

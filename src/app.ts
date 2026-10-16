@@ -12,6 +12,7 @@ import { planRoutes } from "./modules/plans/plan.routes.js";
 import { userRoutes } from "./modules/users/user.routes.js";
 import { usageRoutes } from "./modules/usage/usage.routes.js";
 import { registerApiKeyAuth } from "./plugins/api-key-auth.js";
+import { openApiPlugin } from "./plugins/openapi.js";
 
 type BuildAppOptions = FastifyServerOptions & {
   accountCreationRateLimit?: AccountCreationRateLimitConfig;
@@ -33,6 +34,7 @@ export function buildApp(options: BuildAppOptions = { logger: true }) {
   const app = Fastify(fastifyOptions);
 
   registerApiKeyAuth(app);
+  app.register(openApiPlugin);
   app.register(rateLimit, {
     global: false,
     addHeaders: {

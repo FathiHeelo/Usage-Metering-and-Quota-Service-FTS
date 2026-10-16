@@ -11,6 +11,7 @@ A cloud-hosted, account-aware quota service that makes atomic usage decisions ac
 [![Fastify](https://img.shields.io/badge/Fastify-5-111111?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
 [![HTTPS Enabled](https://img.shields.io/badge/HTTPS-Enabled-0F766E?style=flat-square&logo=letsencrypt&logoColor=white)](https://quota-fts.duckdns.org)
 [![CI](https://github.com/FathiHeelo/Usage-Metering-and-Quota-Service-FTS/actions/workflows/ci.yml/badge.svg)](https://github.com/FathiHeelo/Usage-Metering-and-Quota-Service-FTS/actions/workflows/ci.yml)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-6BA539?style=flat-square&logo=openapiinitiative&logoColor=white)](https://quota-fts.duckdns.org/docs)
 
 ### 🚀 Live on AWS — Production-Style Cloud Deployment
 
@@ -33,7 +34,22 @@ This is a real, publicly accessible engineering demo hosted on Amazon EC2—not 
 
 [![Launch Live Demo](https://img.shields.io/badge/LAUNCH_LIVE_DEMO-2563EB?style=for-the-badge)](https://quota-fts.duckdns.org)
 
-### Try the Live Demo
+### Interactive API Documentation
+
+**Swagger UI:** [https://quota-fts.duckdns.org/docs](https://quota-fts.duckdns.org/docs)
+
+The interactive documentation describes every implemented endpoint, request, response, error, and API-key requirement. It uses the current origin for “Try it out,” so it works through the existing Caddy HTTPS proxy. The link becomes available after this Swagger-enabled release is deployed.
+
+Reviewer flow:
+
+1. Open Swagger UI and run public `POST /accounts`.
+2. Copy the one-time API key from the response.
+3. Select **Authorize** and enter the key for `x-api-key`.
+4. Create a user, explore plans, consume units, and inspect usage history.
+
+The raw API key is not included in committed examples and Swagger does not persist authorization across reloads.
+
+### Quick Start for Reviewers
 
 Treat the API key issued during onboarding as a secret. The evaluator flow is:
 
@@ -55,6 +71,7 @@ Useful engineering scenarios to exercise include account-level and per-user enfo
 - **Flexible plans:** seeded global plans and tenant-owned custom plans support both scopes.
 - **Secure API-key handling:** raw keys are returned once; only SHA-256 hashes are stored.
 - **Validated REST API:** Fastify routes use Zod validation and generic client-safe errors.
+- **Interactive API contract:** OpenAPI 3 and Swagger UI document all public and authenticated operations without changing runtime validation.
 - **Database-backed verification:** real PostgreSQL integration tests cover persistence, concurrency, and rollback behavior.
 - **Measured workloads:** k6 profiles exercise performance, quota concurrency, and idempotent retries.
 - **Cloud delivery:** Docker Compose runs on AWS EC2 behind Caddy-managed HTTPS.
@@ -86,7 +103,7 @@ flowchart TB
     evaluator -->|HTTPS| caddy
 ```
 
-This is a production-style single-host deployment, not an enterprise production platform. It does not claim Kubernetes, ECS, RDS, load balancing, autoscaling, automated backups, or production monitoring. CI/CD workflows are implemented in the repository, but their AWS OIDC, SSM, GHCR, and GitHub Environment setup must be activated and verified by the repository owner. Caddy is part of the live host configuration rather than an additional service in the repository's default Compose file. The repository binds the API host port to loopback; a public deployment must pair that binding with appropriately restricted EC2 security-group and host-firewall rules.
+This is a production-style single-host deployment, not an enterprise production platform. It does not claim Kubernetes, ECS, RDS, load balancing, autoscaling, automated backups, or production monitoring. GitHub Actions CI/CD is active and was verified with commit `19667512637f93f87410d0978a2c7ccfe7a85ae8`: CI passed, its immutable GHCR image was deployed through OIDC and SSM, both containers were healthy, HTTPS `/health` returned `{"status":"ok"}`, and the running API image matched that commit. Caddy is part of the live host configuration rather than an additional service in the repository's default Compose file. The repository binds the API host port to loopback; a public deployment must pair that binding with appropriately restricted EC2 security-group and host-firewall rules.
 
 ## Project Demo
 
@@ -102,6 +119,7 @@ This is a production-style single-host deployment, not an enterprise production 
 - [Overview](#overview)
 - [Features and capabilities](#features-and-capabilities)
 - [Architecture](#architecture)
+- [Interactive API documentation](#interactive-api-documentation)
 - [Engineering decisions and technology trade-offs](#engineering-decisions-and-technology-trade-offs)
 - [Quota model](#quota-model)
 - [Concurrency and transaction design](#concurrency-and-transaction-design)
@@ -113,6 +131,7 @@ This is a production-style single-host deployment, not an enterprise production 
 - [Configuration and operations](#configuration-and-operations)
 - [Docker and deployment](#docker-and-deployment)
 - [Testing strategy](#testing-strategy)
+- [API testing with Postman](#api-testing-with-postman)
 - [Performance benchmarks](#performance-benchmarks)
 - [Security and reliability](#security-and-reliability)
 - [Known limitations and future improvements](#known-limitations-and-future-improvements)
@@ -173,13 +192,9 @@ At request time:
 
 ### High-Level System Architecture
 
-> **Planned visual - not yet implemented**
->
-> `[ARCHITECTURE DIAGRAM — TO BE ADDED]`
->
-> This diagram will illustrate the calling application and browser dashboard, Fastify routing, authentication and validation, quota services, Drizzle/`pg`, and PostgreSQL. It will also show that Fastify serves the compiled React application rather than running a separate frontend service.
->
-> Future asset: `docs/assets/system-architecture.png`
+![Usage Metering and Quota Service system architecture](docs/assets/system-architecture.png)
+
+The React dashboard is compiled into the same production image and served as static content by Fastify. Browser and API clients enter through DuckDNS and Caddy-managed HTTPS; the Fastify Node.js/TypeScript process handles Zod validation, API-key authentication, account-creation rate limiting, quota decisions, and Swagger documentation. Drizzle and the shared PostgreSQL pool connect to PostgreSQL 16 inside the private Compose network. On the live AWS EC2 host, the API is bound to `127.0.0.1:3000`, PostgreSQL is not publicly exposed, and Docker health checks monitor both services.
 
 ## Engineering Decisions and Technology Trade-offs
 
@@ -325,13 +340,76 @@ PostgreSQL contains seven core tables. Plans and assignments describe current po
 
 ### Database ERD (Entity Relationship Diagram)
 
-> **Planned visual - not yet implemented**
->
-> `[DATABASE ERD — TO BE ADDED]`
->
-> This diagram will illustrate the seven core tables, their account/user/plan relationships, composite tenant foreign key, monthly counter keys, idempotency uniqueness, and important ownership and non-negative checks.
->
-> Future asset: `docs/assets/database-erd.png`
+![Schema-accurate database entity relationship diagram](docs/assets/database-erd.png)
+
+This simplified ERD is derived from [`src/db/schema.ts`](src/db/schema.ts), which remains the authoritative schema. It intentionally replaces the supplied visual reference because that reference contained application-assignment and idempotency tables that do not exist in this service. The checked-in [editable SVG source](docs/assets/database-erd.svg) and Mermaid model below both describe the actual seven tables.
+
+<details>
+<summary>View the editable Mermaid relationship model</summary>
+
+```mermaid
+erDiagram
+    accounts ||--o{ api_keys : authenticates
+    accounts ||--o{ users : owns
+    accounts ||--o{ plans : owns_custom
+    plans ||--o{ accounts : current_account_plan
+    plans ||--o{ users : current_user_plan
+    accounts ||--o{ account_monthly_usage : accumulates
+    users ||--o{ user_monthly_usage : accumulates
+    accounts ||--o{ usage_requests : scopes
+    users ||--o{ usage_requests : receives
+    plans ||--o{ usage_requests : snapshots
+
+    accounts {
+        uuid id PK
+        text name
+        uuid current_plan_id FK
+    }
+    api_keys {
+        uuid id PK
+        uuid account_id FK
+        varchar key_prefix
+        char key_hash UK
+        timestamp revoked_at
+    }
+    users {
+        uuid id PK
+        uuid account_id FK
+        text external_user_id
+        uuid current_plan_id FK
+    }
+    plans {
+        uuid id PK
+        uuid owner_account_id FK
+        text name
+        quota_scope scope
+        bigint monthly_allowance
+        bigint max_units_per_request
+        boolean is_predefined
+    }
+    account_monthly_usage {
+        uuid account_id PK,FK
+        date month_start PK
+        bigint used_units
+    }
+    user_monthly_usage {
+        uuid user_id PK,FK
+        date month_start PK
+        bigint used_units
+    }
+    usage_requests {
+        uuid id PK
+        uuid account_id FK
+        uuid user_id FK
+        text request_id
+        bigint units
+        usage_status status
+        uuid account_plan_id FK
+        uuid user_plan_id FK
+    }
+```
+
+</details>
 
 | Table | Role | Important constraints and indexes |
 | --- | --- | --- |
@@ -366,6 +444,8 @@ Compose starts PostgreSQL, waits until it is healthy, applies committed migratio
 
 - Demo: `http://localhost:3000`
 - Health: `http://localhost:3000/health`
+- Swagger UI: `http://localhost:3000/docs`
+- OpenAPI JSON: `http://localhost:3000/docs/json`
 
 Check health from a shell:
 
@@ -772,11 +852,13 @@ The repository's container topology is intentionally small. It has no Redis, pro
 
 ### CI/CD Automation
 
-Pull requests and pushes to `main` run a clean backend/frontend build and the PostgreSQL integration suites against a disposable PostgreSQL 16 service. After a successful `main` push, CI publishes the existing multi-stage Dockerfile to GHCR with an immutable `sha-<commit>` tag. A separate production workflow can then assume a narrowly scoped AWS role through GitHub OIDC and ask SSM to replace only the EC2 API container—no SSH key or long-lived AWS credential is stored in GitHub.
+![CI/CD deployment architecture](docs/assets/ci-cd-architecture.png)
+
+Pull requests and pushes to `main` run a clean backend/frontend build and the PostgreSQL integration suites against a disposable PostgreSQL 16 service. After a successful `main` push, CI builds the multi-stage Dockerfile and publishes it to GHCR with an immutable `sha-<commit>` tag. CD then obtains short-lived AWS credentials through GitHub OIDC, assumes a restricted IAM role, and uses AWS Systems Manager to pull the exact image and recreate only the EC2 API container—no public SSH access or long-lived AWS credential is required.
 
 Deployment never consumes the mutable `latest` tag. The remote script waits for container and HTTP health, restores the prior image on failure, and leaves PostgreSQL, Caddy, secrets, and named volumes in place. Deployment concurrency is serialized so one release cannot interrupt another release's verification or rollback.
 
-The workflows are committed, but this change does not claim that the repository owner's AWS/GitHub settings or a live deployment have been activated. See [CI/CD Setup](docs/CI-CD-SETUP.md) for the exact OIDC trust policy, least-privilege SSM policy, EC2/GHCR preparation, activation checklist, rollback behavior, and troubleshooting steps.
+The pipeline is active. Commit `19667512637f93f87410d0978a2c7ccfe7a85ae8` completed both CI and production deployment using `ghcr.io/fathiheelo/usage-metering-and-quota-service-fts:sha-19667512637f93f87410d0978a2c7ccfe7a85ae8`. Post-deployment checks confirmed a healthy API container, a healthy PostgreSQL container, a successful HTTPS `/health` response, and the expected immutable image. Automatic rollback is implemented for failed health verification; it has not been claimed as experimentally exercised. See [CI/CD Setup](docs/CI-CD-SETUP.md) for architecture, least-privilege configuration, operational procedures, and troubleshooting.
 
 An observed post-test idle snapshot recorded approximately 37.95 MiB for the API and 30.96 MiB for PostgreSQL. Those values are observations from one local Docker environment, not proof that a specific optimization caused the memory level and not a production sizing recommendation.
 
@@ -789,6 +871,7 @@ The integration tests use Fastify injection with real PostgreSQL state. They cov
 | `npm run test:accounts` | Starter assignment and one-time hashed API-key persistence. |
 | `npm run test:account-rate-limit` | Successful public registration, per-client throttling, `429` responses, and trusted-proxy IP handling. |
 | `npm run test:auth` | Public routes, valid/invalid/revoked keys, and authenticated account context. |
+| `npm run test:openapi` | Swagger UI isolation, OpenAPI route coverage, API-key security metadata, and public/protected route behavior. |
 | `npm run test:static-security` | React assets, API route precedence, and encoded/non-canonical path protection. |
 | `npm run test:users` | Tenant-scoped user creation, duplicates, and cross-account identifiers. |
 | `npm run test:user-plan` | User plan scope, access rules, assignment, and usage preservation. |
@@ -810,7 +893,7 @@ npm run test:usage
 npm run test:plan-concurrency
 ```
 
-These are independent scripts; the repository does not define one aggregate full-suite command. This README update did not execute backend integration tests or builds.
+These are independent scripts; the repository does not define one aggregate full-suite command. CI runs the applicable PostgreSQL suites against a disposable database before publishing an image.
 
 The standalone [k6 suite](load-tests/README.md) creates isolated fixtures through the real API and provides:
 
@@ -823,6 +906,14 @@ The standalone [k6 suite](load-tests/README.md) creates isolated fixtures throug
 ```
 
 Stress is an explicit, controlled profile rather than part of normal application startup. Generated result JSON is intentionally ignored by Git, while [the checked-in results summary](load-tests/results/README.md) records retained evidence.
+
+### API Testing with Postman
+
+Postman is used for manual endpoint exploration and reviewer workflows. The importable [collection](postman/Usage-Metering-and-Quota-Service.postman_collection.json) and [example environment](postman/Usage-Metering-and-Quota-Service.postman_environment.json) cover account creation, API-key authentication, users, predefined and custom plans, accepted and rejected quota decisions, idempotency inputs, usage history, HTTP errors, and account-creation rate limiting.
+
+The environment defines `baseUrl`, `apiKey`, `userId`, and `planId`. Its example base URL is the live HTTPS domain and its API-key value is intentionally empty. The **Create Account** request can save the newly issued key only into the reviewer's selected local Postman environment; no credential is committed or published.
+
+Manual Postman testing is distinct from the automated PostgreSQL integration tests and the k6 performance profiles. The collection is provided for exploration and reproducibility; this project does not claim CI-based Postman/Newman execution.
 
 ## Performance Benchmarks
 
@@ -909,12 +1000,14 @@ Potential additions such as API-key lifecycle endpoints, retention policies, bro
 |-- src/                 Fastify application, authentication, services, and Drizzle schema
 |   |-- db/              Connection pool, migrations, seed data, and seven-table schema
 |   |-- modules/         Account, user, plan, and usage route/service/validation modules
-|   `-- plugins/         Reusable API-key authentication
+|   `-- plugins/         API-key authentication and Swagger/OpenAPI registration
 |-- client/              React dashboard and Vite build configuration
 |-- drizzle/             Committed PostgreSQL migration and Drizzle metadata
+|-- openapi/             Static OpenAPI 3 contract served by Swagger UI
+|-- docs/assets/         Architecture PNGs and their editable SVG sources
 |-- test/                Real-PostgreSQL integration and security regression tests
 |-- load-tests/          k6 smoke, load, stress, quota-concurrency, and idempotency profiles
-|-- postman/             Local Postman workspace configuration
+|-- postman/             Importable collection, example environment, and workspace files
 |-- scripts/             Manual deterministic concurrency verification
 |-- Dockerfile           Multi-stage server/client build and non-root runtime image
 |-- docker-compose.yml   API/PostgreSQL topology, healthchecks, logging, and volume
@@ -922,7 +1015,7 @@ Potential additions such as API-key lifecycle endpoints, retention policies, bro
 `-- README.md            Engineering case study and operating guide
 ```
 
-Future diagram assets should be checked into `docs/assets/` and referenced with relative Markdown paths, for example:
+Architecture assets are checked into `docs/assets/` and referenced with relative Markdown paths. Editable SVG sources are retained beside the rendered PNGs so future corrections remain reviewable.
 
 ```markdown
 ![System Architecture](docs/assets/system-architecture.png)

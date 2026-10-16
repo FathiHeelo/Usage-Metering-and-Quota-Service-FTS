@@ -30,6 +30,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=server-build --chown=node:node /app/dist ./dist
 COPY --from=client-build --chown=node:node /app/dist/public ./dist/public
 COPY --chown=node:node drizzle ./drizzle
+COPY --chown=node:node openapi ./openapi
 
 USER node
 

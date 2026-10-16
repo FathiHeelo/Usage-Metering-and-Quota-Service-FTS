@@ -7,6 +7,18 @@ export interface Account {
   name: string;
 }
 
+export interface ActivePlan {
+  id: string;
+  name: string;
+  scope: Scope;
+  monthlyAllowance: string;
+  maxUnitsPerRequest: string;
+}
+
+export interface AuthenticatedAccount extends Account {
+  currentPlan: ActivePlan;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -33,6 +45,7 @@ export interface AccountUsage {
   used: string;
   monthlyLimit: string;
   remaining: string;
+  currentPlan: ActivePlan;
 }
 
 export interface UserUsage {
@@ -41,6 +54,7 @@ export interface UserUsage {
   used: string;
   monthlyLimit: string;
   remaining: string;
+  currentPlan: ActivePlan;
 }
 
 export interface UsageSnapshot {

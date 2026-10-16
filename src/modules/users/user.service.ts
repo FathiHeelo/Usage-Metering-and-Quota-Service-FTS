@@ -170,7 +170,7 @@ export async function changeUserPlan(
 
     const [updatedUser] = await tx
       .update(users)
-      .set({ currentPlanId: plan.id })
+      .set({ currentPlanId: plan.id, updatedAt: new Date() })
       .where(and(eq(users.id, user.id), eq(users.accountId, accountId)))
       .returning({ id: users.id, externalUserId: users.externalUserId });
 

@@ -26,6 +26,9 @@
     "test:quota-edge-cases": "tsx --test test/quota-edge-cases.integration.test.ts",
     "test:concurrency-manual": "tsx scripts/concurrency-check.ts",
     "test:usage-read": "tsx --test test/usage-read.integration.test.ts",
+    "test:active-plans": "tsx --test test/active-plan.integration.test.ts",
+    "test:updated-at": "tsx --test test/updated-at.integration.test.ts",
+    "test:e2e": "tsx scripts/run-e2e.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
@@ -43,6 +46,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.0",
     "@types/node": "^24.7.2",
     "@types/pg": "^8.15.5",
     "drizzle-kit": "^0.31.5",

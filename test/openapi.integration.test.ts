@@ -14,6 +14,13 @@ interface OpenApiDocument {
     securitySchemes: {
       apiKey: { type: string; in: string; name: string };
     };
+    schemas: Record<
+      string,
+      {
+        required?: string[];
+        properties?: Record<string, { $ref?: string }>;
+      }
+    >;
   };
 }
 
@@ -82,6 +89,28 @@ test("Swagger UI and OpenAPI contract", async (t) => {
     assert.deepEqual(document.paths["/health"]?.get?.security, []);
     assert.deepEqual(document.paths["/accounts"]?.post?.security, []);
     assert.equal(document.paths["/me"]?.get?.security, undefined);
+  });
+
+  await t.test("documents authoritative active plan details", () => {
+    assert.deepEqual(document.components.schemas.ActivePlan?.required, [
+      "id",
+      "name",
+      "scope",
+      "monthlyAllowance",
+      "maxUnitsPerRequest",
+    ]);
+    for (const schemaName of ["AccountUsageResponse", "UserUsageResponse"]) {
+      const schema = document.components.schemas[schemaName];
+      assert.ok(schema?.required?.includes("currentPlan"), schemaName);
+      assert.equal(
+        schema?.properties?.currentPlan?.$ref,
+        "#/components/schemas/ActivePlan",
+      );
+    }
+    assert.match(
+      JSON.stringify(document.components.schemas.AuthenticatedAccountResponse),
+      /currentPlan.*ActivePlan/,
+    );
   });
 
   await t.test("keeps health and account creation operational beside docs", async () => {

@@ -121,7 +121,8 @@ export async function updatePlan(
     name?: string;
     monthlyAllowance?: bigint;
     maxUnitsPerRequest?: bigint;
-  } = {};
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
 
   if (input.name !== undefined) {
     updates.name = input.name;

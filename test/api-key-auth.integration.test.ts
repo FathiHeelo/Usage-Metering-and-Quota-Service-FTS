@@ -80,6 +80,13 @@ test("API key authentication", async (t) => {
       account: {
         id: createdAccountId,
         name: "Authentication Test Account",
+        currentPlan: {
+          id: (response.json() as { account: { currentPlan: { id: string } } }).account.currentPlan.id,
+          name: "Starter",
+          scope: "ACCOUNT",
+          monthlyAllowance: "10000",
+          maxUnitsPerRequest: "100",
+        },
       },
     });
   });

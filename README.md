@@ -1,6 +1,7 @@
+
 # Usage Metering & Quota Service
 
-https://github.com/user-attachments/assets/8701415a-c6ef-4936-bb49-60925f153f32
+https://github.com/user-attachments/assets/cbda936a-1129-468b-b69f-48a3c85445ce
 
 ## Project Overview
 
@@ -57,7 +58,7 @@ The delivery pipeline builds and tests the application, publishes an immutable S
 ## Critical Correctness Guarantees
 
 1. **Atomic consumption.** The account counter, user counter, and history record are written in one PostgreSQL transaction. A persistence failure leaves all three unchanged.
-2. **Concurrency safety.** Quota-affecting work locks the account first, then the user and applicable plan rows. Concurrent users therefore cannot overspend the same account allowance.
+2. **Concurrency safety.** Quota-affecting work locks the account first, then the user and the relevant monthly usage counter rows; current plans are read after these locks. Concurrent users therefore cannot overspend the same account allowance.
 3. **Idempotency.** `(account_id, request_id)` is unique. An identical retry returns the stored decision; reusing the ID with a different user or units returns HTTP `409`.
 4. **Dynamic plans.** Assignment and custom-limit updates share the account serialization point with consumption. A later request sees one coherent plan version, while already consumed units remain intact.
 

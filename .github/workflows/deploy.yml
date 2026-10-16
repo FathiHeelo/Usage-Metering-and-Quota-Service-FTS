@@ -1,0 +1,123 @@
+name: Deploy production
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-api-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy exact image through SSM
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+      EC2_APP_DIR: ${{ vars.EC2_APP_DIR }}
+      IMAGE_URI: ghcr.io/fathiheelo/usage-metering-and-quota-service-fts:sha-${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for variable_name in AWS_REGION AWS_ROLE_ARN EC2_INSTANCE_ID EC2_APP_DIR; do
+            if [[ -z "${!variable_name:-}" ]]; then
+              echo "Missing required GitHub environment variable: ${variable_name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Check out the validated commit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-quota-deploy
+
+      - name: Deploy through AWS Systems Manager
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          script_base64="$(base64 -w 0 scripts/deploy-api.sh)"
+          parameters="$(jq -cn \
+            --arg app_dir "$EC2_APP_DIR" \
+            --arg image "$IMAGE_URI" \
+            --arg script_base64 "$script_base64" \
+            '{commands: [
+              "set -Eeuo pipefail",
+              "remote_script=$(mktemp /tmp/quota-api-deploy.XXXXXX)",
+              "printf %s " + ($script_base64 | @sh) + " | base64 --decode > \"$remote_script\"",
+              "chmod 700 \"$remote_script\"",
+              "cd " + ($app_dir | @sh),
+              "if \"$remote_script\" " + ($image | @sh) + "; then deployment_status=0; else deployment_status=$?; fi; rm -f \"$remote_script\"; exit $deployment_status"
+            ]}')"
+
+          command_id="$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Deploy quota API ${{ github.event.workflow_run.head_sha }}" \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' \
+            --output text)"
+
+          echo "SSM command: $command_id"
+
+          invocation=""
+          remote_status="Pending"
+          for _ in $(seq 1 120); do
+            set +e
+            invocation="$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --output json 2>/dev/null)"
+            query_status=$?
+            set -e
+
+            if [[ $query_status -eq 0 ]]; then
+              remote_status="$(jq -r '.Status' <<<"$invocation")"
+              case "$remote_status" in
+                Success|Cancelled|TimedOut|Failed|Cancelling)
+                  break
+                  ;;
+              esac
+            fi
+            sleep 5
+          done
+
+          if [[ -z "$invocation" ]]; then
+            echo "SSM did not return a command invocation before the deployment timeout." >&2
+            exit 1
+          fi
+
+          echo "Remote status: $remote_status"
+          jq -r '.StandardOutputContent // empty' <<<"$invocation"
+          jq -r '.StandardErrorContent // empty' <<<"$invocation" >&2
+
+          if [[ "$remote_status" != "Success" ]]; then
+            echo "Deployment failed; the remote script attempted an automatic rollback." >&2
+            exit 1
+          fi

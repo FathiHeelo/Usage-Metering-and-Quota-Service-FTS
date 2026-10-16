@@ -22,6 +22,7 @@ services:
     restart: unless-stopped
 
   api:
+    image: ${API_IMAGE:-usage-metering-and-quota-service:local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -29,11 +30,14 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-quota_user}:${POSTGRES_PASSWORD:-quota_password}@postgres:5432/${POSTGRES_DB:-quota_db}
       DB_POOL_MAX: ${DB_POOL_MAX:-10}
       PORT: 3000
+      ACCOUNT_CREATION_RATE_LIMIT_MAX: ${ACCOUNT_CREATION_RATE_LIMIT_MAX:-3}
+      ACCOUNT_CREATION_RATE_LIMIT_WINDOW_MS: ${ACCOUNT_CREATION_RATE_LIMIT_WINDOW_MS:-900000}
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-}
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "${PORT:-3000}:3000"
+      - "127.0.0.1:${PORT:-3000}:3000"
     healthcheck:
       test:
         [

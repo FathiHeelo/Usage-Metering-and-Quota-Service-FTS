@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: postgresql://quota_ci:quota_ci_password@127.0.0.1:5432/quota_edge_test_ci
+  DB_POOL_MAX: 10
+  QUOTA_EDGE_TEST_DATABASE: 1
+  ACCOUNT_CREATION_RATE_LIMIT_MAX: 100
+  ACCOUNT_CREATION_RATE_LIMIT_WINDOW_MS: 60000
+
+jobs:
+  validate:
+    name: Build and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: quota_edge_test_ci
+          POSTGRES_USER: quota_ci
+          POSTGRES_PASSWORD: quota_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quota_ci -d quota_edge_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix client
+
+      - name: Apply database migrations
+        run: npm run db:migrate
+
+      - name: Seed predefined plans
+        run: npm run db:seed
+
+      - name: Build backend and frontend
+        run: npm run build
+
+      - name: Test account creation and authentication
+        run: |
+          npm run test:accounts
+          npm run test:account-rate-limit
+          npm run test:auth
+
+      - name: Test users and plans
+        run: |
+          npm run test:users
+          npm run test:user-plan
+          npm run test:plans
+          npm run test:account-plan
+
+      - name: Test usage and history
+        run: |
+          npm run test:usage
+          npm run test:usage-read
+
+      - name: Test transaction and concurrency behavior
+        run: |
+          npm run test:plan-concurrency
+          npm run test:quota-edge-cases
+
+      - name: Test static serving and API route protection
+        run: npm run test:static-security
+
+  publish:
+    name: Publish immutable API image
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.3.0
+
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/fathiheelo/usage-metering-and-quota-service-fts:sha-${{ github.sha }}
+            ghcr.io/fathiheelo/usage-metering-and-quota-service-fts:latest
+          cache-from: type=gha,scope=api-image
+          cache-to: type=gha,mode=max,scope=api-image

@@ -10,6 +10,7 @@ A cloud-hosted, account-aware quota service that makes atomic usage decisions ac
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-5-111111?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
 [![HTTPS Enabled](https://img.shields.io/badge/HTTPS-Enabled-0F766E?style=flat-square&logo=letsencrypt&logoColor=white)](https://quota-fts.duckdns.org)
+[![CI](https://github.com/FathiHeelo/Usage-Metering-and-Quota-Service-FTS/actions/workflows/ci.yml/badge.svg)](https://github.com/FathiHeelo/Usage-Metering-and-Quota-Service-FTS/actions/workflows/ci.yml)
 
 ### 🚀 Live on AWS — Production-Style Cloud Deployment
 
@@ -85,7 +86,7 @@ flowchart TB
     evaluator -->|HTTPS| caddy
 ```
 
-This is a production-style single-host deployment, not an enterprise production platform. It does not claim Kubernetes, ECS, RDS, load balancing, autoscaling, automated backups, CI/CD deployment, or production monitoring. Caddy is part of the live host configuration rather than an additional service in the repository's default Compose file. The repository's default host-port mapping remains convenient for local development; a public deployment must pair the loopback binding with appropriately restricted EC2 security-group and host-firewall rules.
+This is a production-style single-host deployment, not an enterprise production platform. It does not claim Kubernetes, ECS, RDS, load balancing, autoscaling, automated backups, or production monitoring. CI/CD workflows are implemented in the repository, but their AWS OIDC, SSM, GHCR, and GitHub Environment setup must be activated and verified by the repository owner. Caddy is part of the live host configuration rather than an additional service in the repository's default Compose file. The repository binds the API host port to loopback; a public deployment must pair that binding with appropriately restricted EC2 security-group and host-firewall rules.
 
 ## Project Demo
 
@@ -726,6 +727,7 @@ Results are newest first and always scoped to the authenticated account.
 | `DATABASE_URL` | Required by the Node.js process; Compose supplies an internal URL. | PostgreSQL connection string used by Drizzle and `pg`. |
 | `DB_POOL_MAX` | `10` | Positive integer maximum for the shared PostgreSQL pool. |
 | `PORT` | `3000` | API listen port; also controls the Compose host mapping. |
+| `API_IMAGE` | `usage-metering-and-quota-service:local` | Compose image reference. Local builds retain the default; deployments persist an immutable GHCR SHA tag. |
 | `ACCOUNT_CREATION_RATE_LIMIT_MAX` | `3` | Maximum `POST /accounts` attempts allowed per client IP in one window. |
 | `ACCOUNT_CREATION_RATE_LIMIT_WINDOW_MS` | `900000` (15 minutes) | Positive integer duration of the account-creation rate-limit window. |
 | `TRUSTED_PROXY_IPS` | Empty (trust no proxy) | Comma-separated IP addresses or CIDRs allowed to supply forwarded client-IP information. |
@@ -767,6 +769,14 @@ Container startup applies migrations, seeds predefined plans, and then replaces 
 > Future asset: `docs/assets/docker-deployment.png`
 
 The repository's container topology is intentionally small. It has no Redis, proxy container, process manager, or Kubernetes configuration. The live EC2 host supplies Caddy at the network edge without changing the quota decision path, which remains dependent on one authoritative PostgreSQL database.
+
+### CI/CD Automation
+
+Pull requests and pushes to `main` run a clean backend/frontend build and the PostgreSQL integration suites against a disposable PostgreSQL 16 service. After a successful `main` push, CI publishes the existing multi-stage Dockerfile to GHCR with an immutable `sha-<commit>` tag. A separate production workflow can then assume a narrowly scoped AWS role through GitHub OIDC and ask SSM to replace only the EC2 API container—no SSH key or long-lived AWS credential is stored in GitHub.
+
+Deployment never consumes the mutable `latest` tag. The remote script waits for container and HTTP health, restores the prior image on failure, and leaves PostgreSQL, Caddy, secrets, and named volumes in place. Deployment concurrency is serialized so one release cannot interrupt another release's verification or rollback.
+
+The workflows are committed, but this change does not claim that the repository owner's AWS/GitHub settings or a live deployment have been activated. See [CI/CD Setup](docs/CI-CD-SETUP.md) for the exact OIDC trust policy, least-privilege SSM policy, EC2/GHCR preparation, activation checklist, rollback behavior, and troubleshooting steps.
 
 An observed post-test idle snapshot recorded approximately 37.95 MiB for the API and 30.96 MiB for PostgreSQL. Those values are observations from one local Docker environment, not proof that a specific optimization caused the memory level and not a production sizing recommendation.
 

@@ -219,4 +219,4 @@ Detailed setup and operational procedures are in [docs/CI-CD-SETUP.md](docs/CI-C
 - The dashboard stores the raw demo API key only in browser session storage. This is evaluation-oriented convenience, not enterprise identity management.
 - Enterprise monitoring, automated backups, key-lifecycle endpoints, and retention policies are outside the assignment scope.
 
-Long-form transaction notes, audit evidence, and operating details remain available in [docs/ENGINEERING-NOTES.md](docs/ENGINEERING-NOTES.md), [docs/FINAL_AUDIT_REPORT.md](docs/FINAL_AUDIT_REPORT.md), and [docs/CI-CD-SETUP.md](docs/CI-CD-SETUP.md).
+Long-form transaction notes, the [historical October 15, 2026 audit and post-audit resolution summary](docs/FINAL_AUDIT_REPORT.md), and operating details remain available in [docs/ENGINEERING-NOTES.md](docs/ENGINEERING-NOTES.md) and [docs/CI-CD-SETUP.md](docs/CI-CD-SETUP.md).

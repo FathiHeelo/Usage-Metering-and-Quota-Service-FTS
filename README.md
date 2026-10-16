@@ -15,7 +15,6 @@ A cloud-hosted, account-aware quota service that makes atomic usage decisions ac
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-5-111111?style=flat-square&logo=fastify&logoColor=white)](https://fastify.dev/)
 [![HTTPS Enabled](https://img.shields.io/badge/HTTPS-Enabled-0F766E?style=flat-square&logo=letsencrypt&logoColor=white)](https://quota-fts.duckdns.org)
-[![CI](https://github.com/FathiHeelo/Usage-Metering-and-Quota-Service-FTS/actions/workflows/ci.yml/badge.svg)](https://github.com/FathiHeelo/Usage-Metering-and-Quota-Se
 
 https://github.com/user-attachments/assets/b6ad1c08-818b-4d12-9f0a-681cd78b9566
 

@@ -6,6 +6,7 @@
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/vitejs/vitejs-original.svg" width="42" title="Vite" />
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original.svg" width="42" title="Node.js" />
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/fastify/fastify-original.svg" width="42" title="Fastify" />
+  <img src="https://cdn.simpleicons.org/drizzle/C5F74F" width="42" title="Drizzle ORM" alt="Drizzle ORM" />
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postgresql/postgresql-original.svg" width="42" title="PostgreSQL" />
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" width="42" title="Docker" />
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/githubactions/githubactions-original.svg" width="42" title="GitHub Actions" />
@@ -27,7 +28,7 @@ Jump directly to a section:
 - **Explore:** [Project Overview](#project-overview) · [Live Demo & Links](#live-demo-and-quick-links) · [Core Features](#core-features) · [Technology Stack](#technology-stack)
 - **Architecture & Design:** [Architecture](#architecture) · [Engineering Decisions](#engineering-decisions) · [Correctness Guarantees](#critical-correctness-guarantees) · [Database Design](#database-design)
 - **Run & Integrate:** [Quick Start](#quick-start) · [Configuration](#configuration-reference) · [API Walkthrough](#api-and-demo-walkthrough) · [API Quick Example](#api-quick-example)
-- **Verify & Deploy:** [Testing & Performance](#testing-and-performance) · [Deployment & CI/CD](#deployment-and-cicd) · [Assumptions & Limitations](#assumptions-limitations-and-trade-offs)
+- **Verify & Deploy:** [Testing & Performance](#testing-and-performance) · [Deployment & CI/CD](#deployment-and-cicd) · [Assumptions & Limitations](#assumptions-limitations-and-trade-offs)·[Database Access](#database-access--inspection)
 
 ---
 
@@ -133,6 +134,62 @@ erDiagram
   USERS ||--o{ USER_MONTHLY_USAGE : tracks
   USERS ||--o{ USAGE_REQUESTS : receives
 ```
+
+## Database Access & Inspection
+
+The service uses PostgreSQL 16 with Drizzle ORM for schema management and database operations.
+
+The database runs inside Docker Compose and is intentionally not exposed to the public internet.
+
+### Inspect the Local Database
+
+Start the application:
+
+```bash
+docker compose up -d --build
+```
+
+Connect to PostgreSQL using the default development credentials:
+
+```bash
+docker compose exec postgres psql -U quota_user -d quota_db
+```
+
+List all database tables:
+
+```sql
+\dt
+```
+
+Inspect the data:
+
+```sql
+SELECT * FROM plans LIMIT 10;
+SELECT * FROM accounts LIMIT 10;
+SELECT * FROM users LIMIT 10;
+SELECT * FROM account_monthly_usage LIMIT 10;
+SELECT * FROM user_monthly_usage LIMIT 10;
+SELECT * FROM usage_requests LIMIT 10;
+```
+
+Exit PostgreSQL:
+
+```sql
+\q
+```
+
+If you changed the credentials in `.env`, use your configured PostgreSQL username and database name.
+
+### Schema and Database Tools
+
+- [Database Schema](src/db/schema.ts)
+- [Drizzle Migrations](drizzle/)
+- [Database ERD](docs/assets/database-erd.png)
+- [Drizzle Configuration](drizzle.config.ts)
+
+The project also provides `npm run db:studio` for Drizzle Studio when PostgreSQL is accessible from the local development environment.
+
+**Security:** Production PostgreSQL is private and is not publicly exposed. Evaluators should inspect their own local Docker database rather than connecting directly to production.
 
 Important constraints include tenant-scoped user uniqueness, account-scoped request IDs, composite account/user foreign keys, first-of-month counter keys, and ownership rules distinguishing predefined from custom plans.
 

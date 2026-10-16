@@ -68,7 +68,36 @@ test("dashboard completes a real quota and idempotency workflow", async ({ page 
   await createUserForm.getByRole("button", { name: "Create user" }).click();
   await expect(page.getByText(secondUser, { exact: true }).first()).toBeVisible();
 
+  const olderRecentUsers = Array.from(
+    { length: 8 },
+    (_, index) => `e2e_recent_${index}_${suffix}`,
+  );
+  await page.reload();
+  await page.evaluate(
+    ({ firstUser, secondUser, olderRecentUsers }) => {
+      const session = JSON.parse(
+        sessionStorage.getItem("quota-console-session") ?? "null",
+      ) as { account: { id: string } } | null;
+      if (!session) throw new Error("Expected an authenticated dashboard session");
+      const recentUsers = [secondUser, firstUser, ...olderRecentUsers].map(
+        (externalUserId) => ({ externalUserId }),
+      );
+      sessionStorage.setItem(
+        `quota-console-users:${session.account.id}`,
+        JSON.stringify(recentUsers),
+      );
+    },
+    { firstUser, secondUser, olderRecentUsers },
+  );
+  await page.reload();
   await openPage(page, "Plans", "Limits for every level");
+  await page.getByRole("button", { name: "Show recent users" }).click();
+  const recentUserList = page.getByRole("listbox", { name: "Recent users" });
+  await expect(recentUserList.getByRole("option")).toHaveCount(8);
+  await expect(recentUserList.getByRole("option").first()).toHaveText(secondUser);
+  await expect(recentUserList).not.toContainText(olderRecentUsers[6]);
+  await recentUserList.getByRole("option", { name: firstUser, exact: true }).click();
+  await expect(page.getByLabel("User identifier")).toHaveValue(firstUser);
   await createPlan(page, {
     name: accountPlan,
     scope: "ACCOUNT",
@@ -94,7 +123,6 @@ test("dashboard completes a real quota and idempotency workflow", async ({ page 
   await page.getByRole("button", { name: "Apply account plan" }).click();
   await expect(page.getByRole("status")).toContainText(`Account plan changed to ${accountPlan}`);
 
-  await page.getByLabel("User identifier").fill(firstUser);
   await page.getByLabel("USER plan").selectOption({ label: tightPlan });
   await page.getByRole("button", { name: "Assign user plan" }).click();
   await expect(page.getByRole("status")).toContainText(`${firstUser} now uses ${tightPlan}`);

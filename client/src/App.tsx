@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleGauge,
@@ -37,6 +38,7 @@ import {
   type CSSProperties,
   type ReactNode,
   useEffect,
+  useId,
   useMemo,
   useState,
 } from "react";
@@ -71,6 +73,7 @@ interface ToastState {
 }
 
 const SESSION_KEY = "quota-console-session";
+const MAX_RECENT_USERS = 8;
 
 function readSession(): Session | null {
   try {
@@ -84,7 +87,7 @@ function readSession(): Session | null {
 function readKnownUsers(accountId: string): KnownUser[] {
   try {
     const value = sessionStorage.getItem(`quota-console-users:${accountId}`);
-    return value ? (JSON.parse(value) as KnownUser[]) : [];
+    return value ? (JSON.parse(value) as KnownUser[]).slice(0, MAX_RECENT_USERS) : [];
   } catch {
     return [];
   }
@@ -155,7 +158,7 @@ export function App() {
       const next = [
         user,
         ...current.filter((item) => item.externalUserId !== user.externalUserId),
-      ];
+      ].slice(0, MAX_RECENT_USERS);
       sessionStorage.setItem(
         `quota-console-users:${session.account.id}`,
         JSON.stringify(next),
@@ -673,7 +676,7 @@ function PlansPage({ apiKey, accountPlan, knownUsers, onAccountPlanChanged, onKn
         </div>
         <form className="card form-card compact-form" onSubmit={assignUserPlan}>
           <div className="card-heading"><div><span className="eyebrow">Individual limit</span><h2>Assign a user plan</h2><p>USER plans control one external user without changing the account cap.</p></div></div>
-          <div className="inline-fields"><Field label="User identifier" helper="Exact external ID under this account."><input list="known-user-list" value={assignUserId} onChange={(event) => setAssignUserId(event.target.value)} placeholder="user_001" /><datalist id="known-user-list">{knownUsers.map((user) => <option key={user.externalUserId} value={user.externalUserId} />)}</datalist></Field><Field label="USER plan" helper="Only USER-scoped plans can be assigned."><select value={assignPlanId} onChange={(event) => setAssignPlanId(event.target.value)}><option value="">Choose a plan</option>{userPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></Field></div>
+          <div className="inline-fields"><Field label="User identifier" helper="Choose from the eight most recently used identifiers, or enter an exact ID."><RecentUserInput value={assignUserId} onChange={setAssignUserId} knownUsers={knownUsers} placeholder="user_001" /></Field><Field label="USER plan" helper="Only USER-scoped plans can be assigned."><select value={assignPlanId} onChange={(event) => setAssignPlanId(event.target.value)}><option value="">Choose a plan</option>{userPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></Field></div>
           <button className="button button-secondary" disabled={busy === "user"}>{busy === "user" ? <><Spinner /> Assigning…</> : "Assign user plan"}</button>
         </form>
       </section>
@@ -783,7 +786,7 @@ function PlaygroundPage({ apiKey, accountPlan, knownUsers, notify, onUsageChange
           <div className="card-heading"><div><span className="eyebrow">POST /usage/consume</span><h2>Simulate product usage</h2><p>Nothing is consumed until you explicitly submit this form.</p></div><span className="live-pill"><span /> Live API</span></div>
           <div className="preset-row"><span>Helpful presets</span><button onClick={() => applyPreset("valid")} type="button"><CheckCircle2 size={15} /> Valid consumption</button><button onClick={() => applyPreset("request")} type="button"><AlertTriangle size={15} /> Exceed per-request</button><button onClick={() => applyPreset("monthly")} type="button"><CircleGauge size={15} /> Exceed monthly</button></div>
           <div className="stack-lg">
-            <Field label="User identifier" helper="The external ID of a user owned by this account. Both that user's quota and the account quota will be checked."><input list="playground-users" value={userId} onChange={(event) => { setUserId(event.target.value); setUserUsage(null); }} onBlur={() => { if (userId.trim()) void loadContext(userId); }} placeholder="user_001" /><datalist id="playground-users">{knownUsers.map((user) => <option key={user.externalUserId} value={user.externalUserId} />)}</datalist></Field>
+            <Field label="User identifier" helper="Choose from the eight most recently used identifiers, or enter an exact ID. Both user and account quotas will be checked."><RecentUserInput value={userId} onChange={(next) => { setUserId(next); setUserUsage(null); }} onSelect={(next) => void loadContext(next)} onBlur={() => { if (userId.trim()) void loadContext(userId); }} knownUsers={knownUsers} placeholder="user_001" /></Field>
             <Field label="Number of units" helper="A positive whole number representing the metered work for this request."><input type="number" min="1" step="1" value={units} onChange={(event) => setUnits(event.target.value)} /></Field>
             <Field label="Unique request ID" helper="An idempotency key. Retrying the same ID with the same user and units returns the original decision without charging twice."><div className="input-action"><input value={requestId} onChange={(event) => setRequestId(event.target.value)} /><button type="button" onClick={() => setRequestId(newRequestId())} title="Generate a new request ID"><RefreshCw size={17} /></button></div></Field>
             {error && <InlineMessage tone="error">{error}</InlineMessage>}
@@ -849,6 +852,90 @@ function HistoryTable({ items, compact = false }: { items: HistoryItem[]; compac
 
 function PageHeader({ eyebrow, title, description, actions }: { eyebrow: string; title: string; description: string; actions?: ReactNode }) {
   return <header className="page-header"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{actions && <div className="page-actions">{actions}</div>}</header>;
+}
+
+function RecentUserInput({
+  value,
+  onChange,
+  knownUsers,
+  placeholder,
+  onSelect,
+  onBlur,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  knownUsers: KnownUser[];
+  placeholder?: string;
+  onSelect?: (value: string) => void;
+  onBlur?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const recentUsers = knownUsers.slice(0, MAX_RECENT_USERS);
+
+  function selectUser(externalUserId: string) {
+    onChange(externalUserId);
+    setOpen(false);
+    onSelect?.(externalUserId);
+  }
+
+  return (
+    <div
+      className="recent-user-picker"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setOpen(false);
+          onBlur?.();
+        }
+      }}
+    >
+      <div className="recent-user-input">
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setOpen(true);
+            }
+            if (event.key === "Escape") setOpen(false);
+          }}
+          placeholder={placeholder}
+          role="combobox"
+          aria-autocomplete="none"
+          aria-controls={listId}
+          aria-expanded={open}
+        />
+        <button
+          type="button"
+          className="recent-user-toggle"
+          aria-label="Show recent users"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+        >
+          <ChevronDown size={17} />
+        </button>
+      </div>
+      {open && (
+        <div className="recent-user-menu" id={listId} role="listbox" aria-label="Recent users">
+          {recentUsers.length ? recentUsers.map((user) => (
+            <button
+              type="button"
+              className="recent-user-option"
+              key={user.externalUserId}
+              role="option"
+              aria-selected={user.externalUserId === value}
+              onClick={() => selectUser(user.externalUserId)}
+            >
+              <strong>{user.externalUserId}</strong>
+              {user.plan && <small>{user.plan.name}</small>}
+            </button>
+          )) : <span className="recent-user-empty">No recent users yet</span>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Field({ label, helper, compact = false, children }: { label: string; helper?: string; compact?: boolean; children: ReactNode }) {

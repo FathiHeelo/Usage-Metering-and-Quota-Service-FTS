@@ -138,6 +138,20 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .input-action { display: grid; grid-template-columns: 1fr auto; }
 .input-action input { border-radius: 10px 0 0 10px; }
 .input-action button { width: 45px; border: 1px solid #dce2ec; border-left: 0; border-radius: 0 10px 10px 0; color: var(--blue); background: #f7f9ff; }
+.recent-user-picker { position: relative; min-width: 0; }
+.recent-user-input { display: grid; grid-template-columns: minmax(0, 1fr) 44px; }
+.recent-user-input input { border-radius: 10px 0 0 10px; }
+.recent-user-toggle { display: grid; place-items: center; border: 1px solid #dce2ec; border-left: 0; border-radius: 0 10px 10px 0; color: var(--ink); background: #f7f9ff; }
+.recent-user-toggle:hover { color: var(--blue); background: #eef3ff; }
+.recent-user-toggle:focus-visible { position: relative; z-index: 1; outline: 3px solid rgba(50,104,242,.16); outline-offset: 1px; }
+.recent-user-toggle svg { transition: transform .16s ease; }
+.recent-user-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.recent-user-menu { position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; right: 0; display: grid; gap: 2px; max-height: 280px; overflow-y: auto; padding: 6px; border: 1px solid #dce2ec; border-radius: 11px; background: white; box-shadow: 0 14px 32px rgba(20,39,76,.16); }
+.recent-user-option { display: grid; gap: 3px; padding: 10px 11px; border: 0; border-radius: 8px; color: var(--ink); background: transparent; text-align: left; }
+.recent-user-option:hover, .recent-user-option[aria-selected="true"] { background: #eef3ff; color: var(--blue-dark); }
+.recent-user-option strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.recent-user-option small { color: var(--muted); font-size: 10px; }
+.recent-user-empty { padding: 10px 11px; color: var(--muted); font-size: 12px; }
 .inline-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 .card { border: 1px solid var(--line); border-radius: 17px; background: var(--surface); box-shadow: 0 7px 24px rgba(22,39,73,.035); }

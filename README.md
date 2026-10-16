@@ -4,7 +4,6 @@
 ## Professional Demo
 
 
-**[Watch or download the professional demo](docs/assets/Quota_Service_Professional_Demo.mp4)**
 
 A cloud-hosted, account-aware quota service that makes atomic usage decisions across organization and user limits, with concurrency safety, idempotency, and an auditable request history.
 

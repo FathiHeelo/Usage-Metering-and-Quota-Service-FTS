@@ -1,5 +1,13 @@
 # Usage Metering & Quota Service
 
+## Professional Demo
+
+<video src="docs/assets/Quota_Service_Professional_Demo.mp4" controls preload="metadata" width="100%">
+  Your browser does not support embedded video.
+</video>
+
+**[Watch or download the professional demo](docs/assets/Quota_Service_Professional_Demo.mp4)**
+
 A cloud-hosted, account-aware quota service that makes atomic usage decisions across organization and user limits, with concurrency safety, idempotency, and an auditable request history.
 
 [![Deployed on AWS EC2](https://img.shields.io/badge/AWS-EC2-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/ec2/)
@@ -107,11 +115,9 @@ This is a production-style single-host deployment, not an enterprise production 
 
 ## Project Demo
 
-> **Demo video placeholder**
->
-> [Watch the Demo](YOUR_DEMO_VIDEO_URL)
->
-> Replace `YOUR_DEMO_VIDEO_URL` after recording the walkthrough. The planned video will demonstrate account onboarding, API-key authentication, user and plan management, accepted and rejected consumption, idempotent retries, and usage history.
+**[Watch or download the professional demo](docs/assets/Quota_Service_Professional_Demo.mp4)**
+
+The walkthrough demonstrates account onboarding, API-key authentication, user and plan management, accepted and rejected consumption, idempotent retries, and usage history.
 
 ## Contents
 
